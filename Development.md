@@ -604,6 +604,44 @@ You'll answer:
 "Because it keeps business logic independent of frameworks and external services, making the application easier to test, maintain, and evolve. For example, if we switch from Azure Blob Storage to Amazon S3, only the Infrastructure layer changes."
 "Because it keeps business logic independent of frameworks and external services, making the application easier to test, maintain, and evolve. For example, if we switch from Azure Blob Storage to Amazon S3, only the Infrastructure layer changes."
 
+Traditional Architecture
+Controller
+↓
+Service
+↓
+Repository
+↓
+Database
+
+Clean Architecture
+API
+↓
+Application
+↓
+Infrastructure
+↓
+Database
+
+"But where is Domain?" Exactly.
+The Domain sits beside the Application because it represents the business itself. Let's explain with CogniVault.
+So basically entire service in traditional architecture is splitted in to Application and Domain
+Here's why: Application uses the Domain to apply business rules.
+Application also asks Infrastructure to perform technical operations.
+Infrastructure works with Domain objects (for example, saving a Document entity), but the Domain never calls Infrastructure.
+That dependency direction is one of the core ideas of Clean Architecture, and we'll see it in code very soon. I think once we create the Domain project and write our first Document entity, this model will become much more intuitive.
+
+A more accurate picture would be
+           API
+            │
+            ▼
+      Application
+       │        │
+       ▼        ▼
+    Domain   Infrastructure
+                │
+                ▼
+      PostgreSQL / OpenAI / Blob Storage
+
 Session 6 – Dependency Injection (DI)
 This is one of the most asked topics in .NET interviews.
 Without Dependency Injection
@@ -1400,4 +1438,279 @@ sln Means: Create a Solution. A solution is not a project. Think of it as a work
 -n Means: Name
 CogniVault Creates: CogniVault.slnx (Microsoft introduced the Solution File (.slnx) format. The difference is that .slnx is a modernized format that's easier to maintain and is designed to evolve better than the legacy .sln format.)
 You can verify by executing dir - which will show the created CogniVault.slnx file name available with in backend
+
+Okay Now we will be developing the backend but where we will start it is Domain Layer by crating a Domain Project okay but why we are starting at this
+Imagine You Are Building a Car
+Can you install the steering wheel first? No.
+Can you install the engine first? Not really.
+First, you need the chassis (foundation) the car structure and pillars. Everything else is attached to it.
+Clean Architecture follows the same philosophy.
+
+Our Projects creation order is
+CogniVault.Domain
+CogniVault.Application
+CogniVault.Infrastructure
+CogniVault.Api
+
+Now let's decide which one can exist independently.
+🟢 1. Domain (Foundation)
+Question: Can the Document class exist without PostgreSQL? ✅ Yes. Can it exist without Angular? ✅ Yes. Can it exist without OpenAI? ✅ Yes. an it exist without an API? ✅ Yes.
+So the Domain is completely independent.
+That's why it's created first.
+Think of it as: The business exists before the software.
+
+🔵 2. Application
+Now we ask: How do users interact with this business?
+For CogniVault:
+Upload Document
+Ask Question
+Delete Document
+Search Knowledge
+These are use cases. Can we write an Upload Document feature without knowing what a Document is? ❌ No.
+We need the Domain.
+That's why:
+Application
+        │
+        ▼
+Domain
+Application depends on Domain.
+
+🟠 3. Infrastructure
+Now we ask another question.
+The Application says: "Save this Document."
+But... Where?
+PostgreSQL? Blob Storage? Azure? AWS? Local disk?
+Application doesn't know.
+Infrastructure answers: "I'll take care of it."
+Can Infrastructure exist without Domain? ❌ No.
+It needs the Document class.
+Can Infrastructure exist without Application? Usually no, because it implements interfaces and supports the application's needs.
+So:
+Infrastructure
+        │
+        ▼
+Application
+        │
+        ▼
+Domain
+
+🔴 4. API
+Finally... How does a user reach the application? HTTP. REST. Swagger. Controllers. Authentication.
+The API simply exposes the Application to the outside world.
+Can the API exist without Application? ❌ No.
+Because the Controller eventually does something like:
+_application.UploadDocument(command);
+If Application doesn't exist, the API has nothing to call.
+Building Order
+Now the creation order becomes obvious.
+Step 1
+Domain
+↓
+Step 2
+Application
+↓
+Step 3
+Infrastructure
+↓
+Step 4
+API
+We're building from the center outward.
+
+Runtime Order
+When the application is running, the flow is the opposite.
+Browser
+↓
+API
+↓
+Application
+↓
+Domain
+↓
+Infrastructure
+↓
+PostgreSQL
+
+The Rule I Follow
+Whenever I start a new Clean Architecture project, I ask:
+"If I deleted PostgreSQL, Azure, Angular, Docker, and the Internet, what part of my software would still make sense?"
+The answer is: Domain
+That's why it's always the foundation.
+🚀 Now We're Ready
+
+Our creation order will be:
+
+✅ Create the src folder.
+✅ Create CogniVault.Domain (Class Library).
+✅ Add it to the solution.
+✅ Create CogniVault.Application.
+✅ Add a reference from Application → Domain.
+✅ Create CogniVault.Infrastructure.
+✅ Add references from Infrastructure → Application and Infrastructure → Domain.
+✅ Create CogniVault.Api.
+✅ Add a reference from API → Application (and later wire up Infrastructure through dependency injection).
+Notice that every project is created only after the projects it depends on already exist. That makes the dependency graph natural and avoids circular references.
+
+Next we create a src and tests folder with in backend folder where we already have a slnx file
+We can create using File Explorer or Also use commands in PowerShell
+mkdir src
+mkdir tests
+
+Creating the
+dotnet new classlib -n CogniVault.Domain -o src\CogniVault.Domain
+or can use this if you are already with in src dir without using output location(-o)- dotnet new classlib -n CogniVault.Domain
+Creates a Class Library. A Class Library is simply a project that contains C# classes. It cannot run by itself. That is exactly what we want because the Domain is not an application. It's a library of business concepts.
+
+once that is done we have this folder structure inside src
+backend/
+│
+├── src/
+│   └── CogniVault.Domain/
+│       ├── CogniVault.Domain.csproj
+│       ├── Class1.cs
+│       └── obj/
+│
+├── tests/
+└── CogniVault.slnx
+
+Why classlib? Another great question to think about.
+Could we create a Web API? No.
+Could we create a Console App? No.
+Because the Domain should never start running. It is just a collection of business classes like:
+Document
+ChatSession
+Citation
+KnowledgeBase
+User
+Those classes will later be used by the Application, Infrastructure, and API.
+
+Session 11.1 - What is a Class Library?
+Let's start with a simple question.
+What is a Project?
+A lot of developers think: "A project is a folder." ❌ Not exactly.
+A project is actually defined by a .csproj file.
+For example:
+CogniVault.Domain/
+│
+├── CogniVault.Domain.csproj   ← This is the project
+├── Class1.cs
+└── obj/
+Without the .csproj file, it's just a folder with C# files.
+
+It tells .NET:
+Which SDK to use
+Target Framework like .net 10
+NuGet packages
+Project references
+Build settings
+
+What is inside a .csproj?
+For our Domain project, it will look something like:
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
+Don't worry about the XML yet. Let's break it down.
+<Project Sdk="Microsoft.NET.Sdk">
+This tells .NET: "This project uses the standard .NET SDK."
+
+<TargetFramework>net10.0
+Means: Build this project using .NET 10.
+
+Nullable enable - Enables nullable reference types.
+Instead of accidentally writing: string name = null;
+the compiler helps you catch potential null-related bugs.
+
+ImplicitUsings Instead of writing this in every file:
+using System;
+using System.Collections.Generic;
+using System.Linq;
+.NET adds common namespaces automatically.
+Cleaner code.
+
+Why a Class Library? Now the important question.
+Why don't we create: ASP.NET Core Web API
+Because our Domain doesn't run.
+It doesn't listen on a port. It doesn't have HTTP. It doesn't have Swagger.
+It doesn't have Controllers. It doesn't even have Program.cs. It only contains business classes.
+Imagine This
+Our Domain might eventually contain:
+Domain
+│
+├── Entities
+│     ├── Document.cs
+│     ├── User.cs
+│     └── ChatSession.cs
+│
+├── ValueObjects
+│
+├── Enums
+│
+├── Exceptions
+│
+└── Common
+
+These are just classes. Nothing runs. Then Who Runs?
+Later we'll create: CogniVault.Api
+That project will contain:
+Program.cs which starts the web server.
+Think of it this way:
+Domain is like a book.
+API is the person reading the book aloud.
+The book exists on its own. Why Not Put Everything in API? Because then we'd end up with:
+API
+Controllers
+Models
+Repositories
+Services
+Database
+Business Logic
+Helpers
+Utilities
+After a year:
+800 files Very difficult to maintain.
+Instead:
+Domain has only business concepts.
+What Will the Command Generate?
+When we run: dotnet new classlib -n CogniVault.Domain -o src/CogniVault.Domain
+.NET creates approximately this:
+src/
+└── CogniVault.Domain/
+    │
+    ├── CogniVault.Domain.csproj
+    ├── Class1.cs
+    └── obj/
+Let's understand each item.
+Class1.cs
+A placeholder. Microsoft creates it just to show the project isn't empty.
+We'll delete it.
+obj
+Temporary build files. Generated automatically. Never edit it. Never commit it. Our .gitignore already ignores it.
+
+.csproj
+The heart of the project. Everything else depends on this file.
+One More Thing
+A project does not become part of the solution automatically. After creating the Domain project, we'll explicitly add it to our solution. That's an important distinction:
+
+Solution (.slnx)
+        │
+        ├── Domain Project
+        ├── Application Project
+        ├── Infrastructure Project
+        └── API Project
+
+Creating a project and adding it to the solution are two separate steps.
+
+Summary (One Line Per Concept)
+Solution (.slnx) → Organizes multiple projects.
+Project (.csproj) → Defines how one project is built.
+Class Library → A project containing reusable C# classes; it doesn't run by itself.
+API Project → The runnable web application that hosts the application.
+obj folder → Temporary build artifacts.
+Class1.cs → Placeholder file that we'll replace with our own code.
+🚀 Now we're ready.
 
