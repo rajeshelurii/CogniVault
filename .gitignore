@@ -1,0 +1,5 @@
+/backend/.vs
+/backend/src/CogniVault.Infrastructure/obj
+/backend/src/CogniVault.Domain/obj
+/backend/src/CogniVault.Application/obj
+/backend/src/CogniVault.Api/obj

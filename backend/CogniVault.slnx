@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CogniVault.Api/CogniVault.Api.csproj" />
+    <Project Path="src/CogniVault.Application/CogniVault.Application.csproj" />
+    <Project Path="src/CogniVault.Domain/CogniVault.Domain.csproj" />
+    <Project Path="src/CogniVault.Infrastructure/CogniVault.Infrastructure.csproj" />
+  </Folder>
+</Solution>
