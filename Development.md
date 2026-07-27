@@ -604,6 +604,44 @@ You'll answer:
 "Because it keeps business logic independent of frameworks and external services, making the application easier to test, maintain, and evolve. For example, if we switch from Azure Blob Storage to Amazon S3, only the Infrastructure layer changes."
 "Because it keeps business logic independent of frameworks and external services, making the application easier to test, maintain, and evolve. For example, if we switch from Azure Blob Storage to Amazon S3, only the Infrastructure layer changes."
 
+Traditional Architecture
+Controller
+↓
+Service
+↓
+Repository
+↓
+Database
+
+Clean Architecture
+API
+↓
+Application
+↓
+Infrastructure
+↓
+Database
+
+"But where is Domain?" Exactly.
+The Domain sits beside the Application because it represents the business itself. Let's explain with CogniVault.
+So basically entire service in traditional architecture is splitted in to Application and Domain
+Here's why: Application uses the Domain to apply business rules.
+Application also asks Infrastructure to perform technical operations.
+Infrastructure works with Domain objects (for example, saving a Document entity), but the Domain never calls Infrastructure.
+That dependency direction is one of the core ideas of Clean Architecture, and we'll see it in code very soon. I think once we create the Domain project and write our first Document entity, this model will become much more intuitive.
+
+A more accurate picture would be
+           API
+            │
+            ▼
+      Application
+       │        │
+       ▼        ▼
+    Domain   Infrastructure
+                │
+                ▼
+      PostgreSQL / OpenAI / Blob Storage
+
 Session 6 – Dependency Injection (DI)
 This is one of the most asked topics in .NET interviews.
 Without Dependency Injection
@@ -1114,5 +1152,709 @@ The security model.
 The deployment strategy.
 That's when this project becomes much more than code—it becomes evidence of your engineering thinking.
 
+CogniVault Development Environment Setup
+
+| Application / Tool     | Version                   | Installation / Verification                           |
+| ---------------------- | ------------------------- | ----------------------------------------------------- |
+| **Windows 11**         | Latest Updates            | Windows Update                                        |
+| **Visual Studio**      | **2026**                  | Install with **ASP.NET and Web Development** workload |
+| **.NET SDK**           | **10 LTS**                | `dotnet --version`                                    |
+| **Visual Studio Code** | Latest                    | Install from official website                         |
+| **Node.js**            | Latest **LTS**            | `node -v`                                             |
+| **npm**                | Comes with Node.js        | `npm -v`                                              |
+| **Angular CLI**        | **22**                    | `npm install -g @angular/cli`<br>`ng version`         |
+| **GitHub Desktop**     | Latest                    | Install and sign in to GitHub                         |
+| **Git**                | Latest                    | `git --version`                                       |
+| **Docker Desktop**     | Latest                    | Install from Docker Desktop                           |
+| **WSL**                | **WSL 2**                 | `wsl --install` *(Administrator PowerShell)*          |
+| **Ubuntu (WSL)**       | Latest LTS                | Installed automatically with `wsl --install`          |
+| **Docker Compose**     | Comes with Docker Desktop | `docker compose version`                              |
+
+VS Code Extensions
+Install these extensions:
+Extension	Required
+C# Dev Kit	✅
+Angular Language Service	✅
+Docker	✅
+ESLint	✅
+Prettier	Recommended
+GitLens	Recommended
+Error Lens	Recommended
+
+Folder Structure
+CogniVault/
+│
+├── backend/
+├── frontend/
+├── docker/
+├── docs/
+├── scripts/
+│
+├── README.md
+└── .gitignore
+
+Verification Commands
+.NET
+dotnet --version
+dotnet --list-sdks
+
+Node.js
+node -v
+
+npm
+npm -v
+
+Angular
+ng version
+
+Git
+git --version
+
+Docker
+docker --version
+docker info
+docker compose version
+
+WSL
+wsl --version
+wsl -l -v
+Expected:
+NAME              STATE      VERSION
+Ubuntu            Stopped    2
+docker-desktop    Running    2
+
+Development Workflow
+Backend
+cd backend
+dotnet watch
+Frontend
+cd frontend
+ng serve
+Docker
+docker compose up
+
+✅ CogniVault Milestone 1 Completed
+Development Environment
+| Component          | Status |
+| ------------------ | ------ |
+| Windows 11         | ✅      |
+| Visual Studio 2026 | ✅      |
+| .NET 10 LTS        | ✅      |
+| VS Code            | ✅      |
+| Node.js LTS        | ✅      |
+| npm                | ✅      |
+| Angular CLI 22     | ✅      |
+| GitHub Desktop     | ✅      |
+| Git                | ✅      |
+| Docker Desktop     | ✅      |
+| WSL 2              | ✅      |
+| Ubuntu             | ✅      |
+| Docker Compose     | ✅      |
+Status: 100% Complete
+
+[✓] Product Idea
+        ↓
+[✓] Architecture
+        ↓
+[✓] Technology Selection
+        ↓
+[✓] Development Environment
+        ↓
+[➡] Project Creation
+        ↓
+[ ] Authentication
+        ↓
+[ ] Database
+        ↓
+[ ] Document Upload
+        ↓
+[ ] AI Features
+        ↓
+[ ] Deployment
+
+Solution Structure
+CogniVault/
+│
+├── backend/
+│   ├── CogniVault.sln
+│   │
+│   ├── src/
+│   │   ├── CogniVault.Api
+│   │   ├── CogniVault.Application
+│   │   ├── CogniVault.Domain
+│   │   └── CogniVault.Infrastructure
+│   │
+│   └── tests/
+│       ├── CogniVault.UnitTests
+│       └── CogniVault.IntegrationTests
+│
+├── frontend/
+│   └── cognivault-web/
+│
+├── docker/
+│
+├── docs/
+│   ├── architecture/
+│   ├── decisions/
+│   ├── diagrams/
+│   ├── api/
+│   └── roadmap/
+│
+├── scripts/
+│
+├── README.md
+│
+└── .gitignore
+
+Why this Structure?
+backend
+Everything related to .NET.
+Nothing Angular-related should ever be inside this folder.
+src
+Contains only production code.
+Api
+Application
+Domain
+Infrastructure
+No tests.
+No scripts.
+No experiments.
+tests
+All test projects live here.
+UnitTests
+IntegrationTests
+This separation is common in enterprise applications and keeps production code isolated from test code.
+frontend
+We'll create:
+cognivault-web
+Why not just call it angular?
+Because one day we might have:
+cognivault-admin
+cognivault-mobile
+cognivault-public
+Using a descriptive application name scales better.
+docker
+Later this will contain:
+docker-compose.yml
+postgres
+redis
+and any custom Dockerfiles.
+docs
+Not just random documents.
+Real project documentation.
+Architecture
+API
+Decision Records
+Diagrams
+Roadmap
+scripts
+Automation scripts.
+For example:
+setup.ps1
+reset-db.ps1
+seed-data.ps1
+
+The Backend Projects
+CogniVault.Domain
+This is the heart of the application.
+Contains:
+Entities
+Value Objects
+Domain Rules
+Business Logic
+It knows nothing about:
+SQL
+ASP.NET
+OpenAI
+Docker
+
+CogniVault.Application
+Contains:
+Features
+Commands
+Queries
+Validators
+Interfaces
+This is where we'll use Vertical Slice Architecture.
+Example:
+Features
+Authentication
+Documents
+Chat
+
+CogniVault.Infrastructure
+Contains implementations.
+Examples:
+PostgreSQL
+OpenAI
+Blob Storage
+Logging
+Email
+If we replace PostgreSQL with another database, most of the application remains unchanged.
+
+CogniVault.Api
+The entry point.
+Responsible for:
+Controllers
+Authentication
+Middleware
+Swagger
+Dependency Injection
+Hosting
+
+Before we move to Session 11, please run these 5 commands and send me the output:
+1. .NET
+dotnet --version
+dotnet --list-sdks
+2. Node
+node -v
+3. npm
+npm -v
+4. Angular
+ng version
+5. Docker
+docker --version
+docker compose version
+6. GitHub Desctop or Cmd
+git --version
+
+Creating .Net Project
+1). Using GUI
+File
+   ↓
+New
+   ↓
+Projet
+Blank Solution
+We are doing this because we need our oun clear architecture where as selecting a pre set templates would create the default structure which we dont want.
+
+2). From Commands
+open powershell or cmd
+open backend folder use cd
+execute dotnet new sln -n CogniVault
+dotnet Invokes the .NET CLI.
+new Tells .NET to create something from a template.
+sln Means: Create a Solution. A solution is not a project. Think of it as a workspace that groups multiple projects together.
+-n Means: Name
+CogniVault Creates: CogniVault.slnx (Microsoft introduced the Solution File (.slnx) format. The difference is that .slnx is a modernized format that's easier to maintain and is designed to evolve better than the legacy .sln format.)
+You can verify by executing dir - which will show the created CogniVault.slnx file name available with in backend
+
+Okay Now we will be developing the backend but where we will start it is Domain Layer by crating a Domain Project okay but why we are starting at this
+Imagine You Are Building a Car
+Can you install the steering wheel first? No.
+Can you install the engine first? Not really.
+First, you need the chassis (foundation) the car structure and pillars. Everything else is attached to it.
+Clean Architecture follows the same philosophy.
+
+Our Projects creation order is
+CogniVault.Domain
+CogniVault.Application
+CogniVault.Infrastructure
+CogniVault.Api
+
+Now let's decide which one can exist independently.
+🟢 1. Domain (Foundation)
+Question: Can the Document class exist without PostgreSQL? ✅ Yes. Can it exist without Angular? ✅ Yes. Can it exist without OpenAI? ✅ Yes. an it exist without an API? ✅ Yes.
+So the Domain is completely independent.
+That's why it's created first.
+Think of it as: The business exists before the software.
+
+🔵 2. Application
+Now we ask: How do users interact with this business?
+For CogniVault:
+Upload Document
+Ask Question
+Delete Document
+Search Knowledge
+These are use cases. Can we write an Upload Document feature without knowing what a Document is? ❌ No.
+We need the Domain.
+That's why:
+Application
+        │
+        ▼
+Domain
+Application depends on Domain.
+
+🟠 3. Infrastructure
+Now we ask another question.
+The Application says: "Save this Document."
+But... Where?
+PostgreSQL? Blob Storage? Azure? AWS? Local disk?
+Application doesn't know.
+Infrastructure answers: "I'll take care of it."
+Can Infrastructure exist without Domain? ❌ No.
+It needs the Document class.
+Can Infrastructure exist without Application? Usually no, because it implements interfaces and supports the application's needs.
+So:
+Infrastructure
+        │
+        ▼
+Application
+        │
+        ▼
+Domain
+
+🔴 4. API
+Finally... How does a user reach the application? HTTP. REST. Swagger. Controllers. Authentication.
+The API simply exposes the Application to the outside world.
+Can the API exist without Application? ❌ No.
+Because the Controller eventually does something like:
+_application.UploadDocument(command);
+If Application doesn't exist, the API has nothing to call.
+Building Order
+Now the creation order becomes obvious.
+Step 1
+Domain
+↓
+Step 2
+Application
+↓
+Step 3
+Infrastructure
+↓
+Step 4
+API
+We're building from the center outward.
+
+Runtime Order
+When the application is running, the flow is the opposite.
+Browser
+↓
+API
+↓
+Application
+↓
+Domain
+↓
+Infrastructure
+↓
+PostgreSQL
+
+The Rule I Follow
+Whenever I start a new Clean Architecture project, I ask:
+"If I deleted PostgreSQL, Azure, Angular, Docker, and the Internet, what part of my software would still make sense?"
+The answer is: Domain
+That's why it's always the foundation.
+🚀 Now We're Ready
+
+Our creation order will be:
+
+✅ Create the src folder.
+✅ Create CogniVault.Domain (Class Library).
+✅ Add it to the solution.
+✅ Create CogniVault.Application.
+✅ Add a reference from Application → Domain.
+✅ Create CogniVault.Infrastructure.
+✅ Add references from Infrastructure → Application and Infrastructure → Domain.
+✅ Create CogniVault.Api.
+✅ Add a reference from API → Application (and later wire up Infrastructure through dependency injection).
+Notice that every project is created only after the projects it depends on already exist. That makes the dependency graph natural and avoids circular references.
+
+Next we create a src and tests folder with in backend folder where we already have a slnx file
+We can create using File Explorer or Also use commands in PowerShell
+mkdir src
+mkdir tests
+
+Creating the
+dotnet new classlib -n CogniVault.Domain -o src\CogniVault.Domain
+or can use this if you are already with in src dir without using output location(-o)- dotnet new classlib -n CogniVault.Domain
+Creates a Class Library. A Class Library is simply a project that contains C# classes. It cannot run by itself. That is exactly what we want because the Domain is not an application. It's a library of business concepts.
+
+once that is done we have this folder structure inside src
+backend/
+│
+├── src/
+│   └── CogniVault.Domain/
+│       ├── CogniVault.Domain.csproj
+│       ├── Class1.cs
+│       └── obj/
+│
+├── tests/
+└── CogniVault.slnx
+
+Why classlib? Another great question to think about.
+Could we create a Web API? No.
+Could we create a Console App? No.
+Because the Domain should never start running. It is just a collection of business classes like:
+Document
+ChatSession
+Citation
+KnowledgeBase
+User
+Those classes will later be used by the Application, Infrastructure, and API.
+
+Session 11.1 - What is a Class Library?
+Let's start with a simple question.
+What is a Project?
+A lot of developers think: "A project is a folder." ❌ Not exactly.
+A project is actually defined by a .csproj file.
+For example:
+CogniVault.Domain/
+│
+├── CogniVault.Domain.csproj   ← This is the project
+├── Class1.cs
+└── obj/
+Without the .csproj file, it's just a folder with C# files.
+
+It tells .NET:
+Which SDK to use
+Target Framework like .net 10
+NuGet packages
+Project references
+Build settings
+
+What is inside a .csproj?
+For our Domain project, it will look something like:
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
+Don't worry about the XML yet. Let's break it down.
+<Project Sdk="Microsoft.NET.Sdk">
+This tells .NET: "This project uses the standard .NET SDK."
+
+<TargetFramework>net10.0
+Means: Build this project using .NET 10.
+
+Nullable enable - Enables nullable reference types.
+Instead of accidentally writing: string name = null;
+the compiler helps you catch potential null-related bugs.
+
+ImplicitUsings Instead of writing this in every file:
+using System;
+using System.Collections.Generic;
+using System.Linq;
+.NET adds common namespaces automatically.
+Cleaner code.
+
+Why a Class Library? Now the important question.
+Why don't we create: ASP.NET Core Web API
+Because our Domain doesn't run.
+It doesn't listen on a port. It doesn't have HTTP. It doesn't have Swagger.
+It doesn't have Controllers. It doesn't even have Program.cs. It only contains business classes.
+Imagine This
+Our Domain might eventually contain:
+Domain
+│
+├── Entities
+│     ├── Document.cs
+│     ├── User.cs
+│     └── ChatSession.cs
+│
+├── ValueObjects
+│
+├── Enums
+│
+├── Exceptions
+│
+└── Common
+
+These are just classes. Nothing runs. Then Who Runs?
+Later we'll create: CogniVault.Api
+That project will contain:
+Program.cs which starts the web server.
+Think of it this way:
+Domain is like a book.
+API is the person reading the book aloud.
+The book exists on its own. Why Not Put Everything in API? Because then we'd end up with:
+API
+Controllers
+Models
+Repositories
+Services
+Database
+Business Logic
+Helpers
+Utilities
+After a year:
+800 files Very difficult to maintain.
+Instead:
+Domain has only business concepts.
+What Will the Command Generate?
+When we run: dotnet new classlib -n CogniVault.Domain -o src/CogniVault.Domain
+.NET creates approximately this:
+src/
+└── CogniVault.Domain/
+    │
+    ├── CogniVault.Domain.csproj
+    ├── Class1.cs
+    └── obj/
+Let's understand each item.
+Class1.cs
+A placeholder. Microsoft creates it just to show the project isn't empty.
+We'll delete it.
+obj
+Temporary build files. Generated automatically. Never edit it. Never commit it. Our .gitignore already ignores it.
+
+.csproj
+The heart of the project. Everything else depends on this file.
+One More Thing
+A project does not become part of the solution automatically. After creating the Domain project, we'll explicitly add it to our solution. That's an important distinction:
+
+Solution (.slnx)
+        │
+        ├── Domain Project
+        ├── Application Project
+        ├── Infrastructure Project
+        └── API Project
+
+Creating a project and adding it to the solution are two separate steps.
+
+Summary (One Line Per Concept)
+Solution (.slnx) → Organizes multiple projects.
+Project (.csproj) → Defines how one project is built.
+Class Library → A project containing reusable C# classes; it doesn't run by itself.
+API Project → The runnable web application that hosts the application.
+obj folder → Temporary build artifacts.
+Class1.cs → Placeholder file that we'll replace with our own code.
+🚀 Now we're ready.
+
+Session 11.2 - Adding the Domain Project to the Solution
+Before we type the command, I want to ask you something.
+Right now we have:
+backend/
+│
+├── CogniVault.slnx
+│
+└── src/
+    └── CogniVault.Domain/
+        ├── CogniVault.Domain.csproj
+        └── ...
+Notice something... The solution and the project are just sitting beside each other.
+The solution doesn't know the project exists yet.
+Think of it like this. Imagine you bought a new TV. Does your TV remote automatically know about the TV? No. You have to pair it.
+The same thing happens here.
+What is a Solution? Think of the solution as a playlist.
+Spotify Playlist
+Song A
+Song B
+Song C
+The songs exist independently. The playlist simply says "These are the songs I want together."
+
+Exactly the same.
+CogniVault.slnx
+↓
+Domain
+↓
+Application
+↓
+Infrastructure
+↓
+API
+
+The solution doesn't contain code. It simply keeps a list of projects.
+Without adding it... Visual Studio would open the solution and show:
+Solution 'CogniVault'
+(Empty)
+you can test this manually opening slnx file in VS or executing below cmd
+PS C:\Users\rajes\Documents\GitHub\CogniVault\backend> dotnet sln list
+No projects found in the solution.
+
+Even though the Domain project exists on disk. Because the solution hasn't been told about it.
+The Command we should execute to add the project to soln is
+Run: dotnet sln add src/CogniVault.Domain/CogniVault.Domain.csproj
+Let's break it down.
+dotnet - Run the .NET CLI.
+sln - Work with a solution.
+Notice this is different from:
+dotnet new
+Earlier we created something. Now we're managing the solution.
+add Means Add a project into the solution. Not create. Not build.Just register it.
+Project Path
+src/CogniVault.Domain/CogniVault.Domain.csproj
+We're simply telling the solution Here's a project. Please include it.
+What Happens Internally?
+Before:
+CogniVault.slnx
+↓
+(no projects)
+
+After:
+CogniVault.slnx
+↓
+CogniVault.Domain
+
+Nothing changes inside Domain. Nothing changes inside .csproj. Only the solution is updated.
+
+Verify Run:
+dotnet sln list
+Expected:
+PS C:\Users\rajes\Documents\GitHub\CogniVault\backend> dotnet sln list
+Project(s)
+----------
+src\CogniVault.Domain\CogniVault.Domain.csproj
+
+Another Important Concept
+Many beginners think
+Solution
+↓
+contains
+↓
+Project
+
+Actually...
+Solution
+knows about
+↓
+Project
+
+The project can exist without a solution. In fact, you can build it directly: dotnet build src/CogniVault.Domain/CogniVault.Domain.csproj
+The solution is mainly a convenience for organizing and working with multiple projects together.
+
+Next Project: Application
+Before I give you the command, I want to explain why Application is a Class Library too.
+Many people think: "Application sounds like the main application." It isn't.
+In Clean Architecture, Application is not executable.
+It also doesn't run by itself. Just like Domain, it's a library.
+Think about this When someone uploads a document:
+UploadDocument
+Is that an HTTP concept? ❌ No. Is that a database concept? ❌ No.
+It's a business use case. That's why it belongs in the Application project.
+So why is it a Class Library?
+Because it simply contains classes like:
+UploadDocumentCommand
+UploadDocumentHandler
+DeleteDocumentHandler
+AskQuestionHandler
+SearchDocumentsHandler
+These are just C# classes.
+They don't listen for HTTP requests. They don't open ports. They don't start a web server. The API will use them later.
+The Command
+Just like before, we'll create it under src.
+dotnet new classlib -n CogniVault.Application -o src/CogniVault.Application
+What will happen? After running it:
+src/
+│
+├── CogniVault.Domain/
+│
+└── CogniVault.Application/
+    ├── CogniVault.Application.csproj
+    ├── Class1.cs
+    └── obj/
+
+Exactly the same structure as Domain. Then we'll do two important things
+Add it to the solution:
+dotnet sln add src/CogniVault.Application/CogniVault.Application.csproj
+Create our first project reference:
+dotnet add src/CogniVault.Application/CogniVault.Application.csproj reference src/CogniVault.Domain/CogniVault.Domain.csproj
+Notice this new command:
+dotnet add ... reference ...
+
+This is the first time one project will say: "I need classes from another project."
+That single line is what establishes:
+Application
+      │
+      ▼
+Domain
+
+Run these three commands, one at a time:
+dotnet new classlib -n CogniVault.Application -o src/CogniVault.Application
+dotnet sln add src/CogniVault.Application/CogniVault.Application.csproj
+dotnet add src/CogniVault.Application/CogniVault.Application.csproj reference src/CogniVault.Domain/CogniVault.Domain.csproj
 
 
