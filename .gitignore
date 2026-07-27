@@ -3,3 +3,5 @@
 /backend/src/CogniVault.Domain/obj
 /backend/src/CogniVault.Application/obj
 /backend/src/CogniVault.Api/obj
+
+/Development.md
