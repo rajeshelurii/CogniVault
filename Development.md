@@ -1857,4 +1857,244 @@ dotnet new classlib -n CogniVault.Application -o src/CogniVault.Application
 dotnet sln add src/CogniVault.Application/CogniVault.Application.csproj
 dotnet add src/CogniVault.Application/CogniVault.Application.csproj reference src/CogniVault.Domain/CogniVault.Domain.csproj
 
+so once we added a project reference to Domain in Application, The csproj of Application Project will be updated with the below code and evedently we cab use the classes of Domain in Application proj.
+
+<ItemGroup>
+  <ProjectReference Include="..\CogniVault.Domain\CogniVault.Domain.csproj" />
+</ItemGroup>
+
+So basically both the class libraries dont know about each. As we want to use the Domain class lib we should be adding project reference.
+Now Application can use every public class inside Domain.
+
+For example, later we'll write:
+using CogniVault.Domain.Entities;
+
+public class UploadDocumentHandler
+{
+    public void Handle()
+    {
+        Document document = new Document();
+    }
+}
+
+Why does this compile? Because of ProjectReference.
+Without it... Visual Studio would say: The type or namespace 'CogniVault.Domain' could not be found.
+
+Project Reference = Permission to use another project's public classes.
+
+1. Namespace : A Namespace is a logical grouping of related classes to organize code and avoid naming conflicts.
+Example:
+namespace CogniVault.Domain.Entities;
+public class Document
+{
+}
+Purpose: Organizes code. prevents duplicate class names. Used with the using keyword.
+Mental Model: Folder (Windows) = Namespace (C#)
+
+2. Assembly : An Assembly is the compiled output of a project (.dll or .exe).
+Example:
+CogniVault.Domain.csproj
+        │
+Build
+        ▼
+CogniVault.Domain.dll
+Purpose: Contains compiled code. Can be shared and referenced by other projects.
+Mental Model:
+Many .cs files
+        │
+Compiler
+        ▼
+One .dll (Assembly)
+
+3. Project Reference : A Project Reference allows one project to use the public classes of another project.
+Example:
+<ProjectReference Include="..\CogniVault.Domain\CogniVault.Domain.csproj" />
+Purpose: Links two projects. Makes another project's assembly available during compilation.
+Mental Model:
+Application
+      │
+ProjectReference
+      ▼
+Domain
+
+Application can now use:
+using CogniVault.Domain.Entities;
+Document document = new();
+How They Work Together
+Solution (.slnx)
+│
+├── Domain Project (.csproj)
+│      │
+│      ├── Namespace
+│      │      CogniVault.Domain.Entities
+│      │
+│      └── Build
+│             ▼
+│       CogniVault.Domain.dll (Assembly)
+│
+└── Application Project
+       │
+       ├── ProjectReference
+       │
+       └── using CogniVault.Domain.Entities;
+One-Line Memory Trick
+Namespace → Organizes classes.
+Assembly → Compiled output of a project (.dll/.exe).
+Project Reference → Allows one project to use another project's assembly.
+
+The Golden Rule
+The layer that needs something defines the interface.
+The layer that provides it implements the interface.
+
+Example
+Who owns the business requirement? Ask yourself this question.
+Imagine you tell a carpenter:
+"Build me a table." Who decides what the table should look like? You.
+Not the carpenter. The carpenter only builds it. Exactly the same thing here.
+
+Application says: "I need someone who can save a document.
+Infrastructure says: "I'll do it using PostgreSQL."
+The requirement belongs to Application. The implementation belongs to Infrastructure.
+
+⭐ The Principle I Want You to Remember
+Don't think of interfaces as belonging to the implementation.
+Think of them as belonging to the consumer.
+For example:
+Application needs to save documents → IDocumentRepository belongs to Application.
+Application needs to send emails → IEmailService belongs to Application.
+Application needs AI embeddings → IEmbeddingService belongs to Application.
+Infrastructure's job is simply to say: "I know how to fulfill that contract."
+
+Creating the Infrastructure
+PS C:\Users\rajes\Documents\GitHub\CogniVault\backend> dotnet new classlib -n CogniVault.Infrastructure -o src/CogniVault.Infrastructure
+The template "Class Library" was created successfully.
+Processing post-creation actions...
+Restoring C:\Users\rajes\Documents\GitHub\CogniVault\backend\src\CogniVault.Infrastructure\CogniVault.Infrastructure.csproj:
+Restore succeeded.
+PS C:\Users\rajes\Documents\GitHub\CogniVault\backend> dotnet sln add src/CogniVault.Infrastructure/CogniVault.Infrastructure.csproj
+Project `src\CogniVault.Infrastructure\CogniVault.Infrastructure.csproj` added to the solution.
+PS C:\Users\rajes\Documents\GitHub\CogniVault\backend> dotnet add src/CogniVault.Infrastructure reference src/CogniVault.Application
+Reference `..\CogniVault.Application\CogniVault.Application.csproj` added to the project.
+PS C:\Users\rajes\Documents\GitHub\CogniVault\backend> dotnet add src/CogniVault.Infrastructure/CogniVault.Infrastructure.csproj reference src/CogniVault.Domain/CogniVault.Domain.csproj
+Reference `..\CogniVault.Domain\CogniVault.Domain.csproj` added to the project.
+
+Session 13 - Creating the API Project This is the last project in our backend architecture.
+After this, our solution structure will be complete. Before we type any command, I want to answer one question.
+Why is API different from the other three projects? Let's compare them.
+Project	Type	Can it Run?	Responsibility
+Domain	Class Library	❌ No	Business Objects
+Application	Class Library	❌ No	Use Cases & Interfaces
+Infrastructure	Class Library	❌ No	Implementations
+API	ASP.NET Core Web API	✅ Yes	Entry point of the application
+
+Notice something.
+The first three are libraries.
+The API is an application.
+What does "Run" mean? When you type: dotnet run
+Which project should start? Should Domain start? No. It doesn't know what to do.
+Should Application start? No. It only contains business logic.
+Should Infrastructure start? No. It only contains implementations.
+The only project that knows how to start a web server is:
+CogniVault.Api
+
+When you execute: dotnet run
+The following happens:
+dotnet run
+      │
+      ▼
+Program.cs
+      │
+      ▼
+Create Web Server
+      │
+      ▼
+Configure Services
+      │
+      ▼
+Configure Middleware
+      │
+      ▼
+Listen on http://localhost:xxxx
+
+Everything starts from one file: Program.cs
+
+What is Program.cs?
+Think of it as: The Main() method of your application.
+Years ago, every C# application looked like this:
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        Console.WriteLine("Application Started");
+    }
+}
+
+Modern ASP.NET Core hides a lot of that boilerplate, but Program.cs is still the entry point.
+It's the first code that executes.
+Why does API reference Application?
+Imagine a controller.
+public class DocumentsController
+{
+}
+Inside it we'll eventually write: UploadDocumentHandler
+Where is that class? Application
+So API needs Application.
+Why does API reference Infrastructure? Remember this line from our earlier discussion? IDocumentRepository
+Application only knows the interface.
+Who provides the implementation? Infrastructure
+Inside Program.cs, we'll tell ASP.NET Core: "Whenever someone asks for IDocumentRepository, give them PostgreSqlDocumentRepository."
+That registration happens in the API project. Therefore the API needs Infrastructure.
+Does API reference Domain? Technically, it can.
+But in our design, we'll try to avoid it.
+Why?
+Because the API should communicate with the Application layer, not directly with business entities.
+This keeps the API thin and focused on HTTP concerns.
+
+Final Dependency Diagram
+After creating the API project, our architecture will look like this:
+
+                 API
+               /     \
+              ▼       ▼
+      Application   Infrastructure
+             │          │
+             └────┬─────┘
+                  ▼
+               Domain
+
+Read it as:
+API knows about Application.
+API knows about Infrastructure.
+Application knows about Domain.
+Infrastructure knows about Application and Domain.
+No arrows point outward from Domain.
+That's the core principle of Clean Architecture.
+
+Commands
+1. Create the project
+dotnet new webapi -n CogniVault.Api -o src/CogniVault.Api
+2. Add it to the solution
+dotnet sln add src/CogniVault.Api/CogniVault.Api.csproj
+3. Add references
+Reference Application:
+dotnet add src/CogniVault.Api/CogniVault.Api.csproj reference src/CogniVault.Application/CogniVault.Application.csproj
+Reference Infrastructure:
+dotnet add src/CogniVault.Api/CogniVault.Api.csproj reference src/CogniVault.Infrastructure/CogniVault.Infrastructure.csproj
+
+PS C:\Users\rajes\Documents\GitHub\CogniVault\backend> dotnet new webapi -n CogniVault.Api -o src/CogniVault.Api
+The template "ASP.NET Core Web API" was created successfully.
+Processing post-creation actions...
+Restoring C:\Users\rajes\Documents\GitHub\CogniVault\backend\src\CogniVault.Api\CogniVault.Api.csproj:
+Restore succeeded with 1 warning(s) in 4.4s
+    C:\Users\rajes\Documents\GitHub\CogniVault\backend\src\CogniVault.Api\CogniVault.Api.csproj : warning NU1903: Package 'Microsoft.OpenApi' 2.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-v5pm-xwqc-g5wc
+Restore succeeded.
+PS C:\Users\rajes\Documents\GitHub\CogniVault\backend> dotnet sln add src/CogniVault.Api/CogniVault.Api.csproj
+Project `src\CogniVault.Api\CogniVault.Api.csproj` added to the solution.
+PS C:\Users\rajes\Documents\GitHub\CogniVault\backend> dotnet add src/CogniVault.Api/CogniVault.Api.csproj reference src/CogniVault.Application/CogniVault.Application.csproj
+Reference `..\CogniVault.Application\CogniVault.Application.csproj` added to the project.
+PS C:\Users\rajes\Documents\GitHub\CogniVault\backend> dotnet add src/CogniVault.Api/CogniVault.Api.csproj reference src/CogniVault.Infrastructure/CogniVault.Infrastructure.csproj
+Reference `..\CogniVault.Infrastructure\CogniVault.Infrastructure.csproj` added to the project.
+PS C:\Users\rajes\Documents\GitHub\CogniVault\backend> Infrastructure
+
 
