@@ -1714,3 +1714,147 @@ obj folder → Temporary build artifacts.
 Class1.cs → Placeholder file that we'll replace with our own code.
 🚀 Now we're ready.
 
+Session 11.2 - Adding the Domain Project to the Solution
+Before we type the command, I want to ask you something.
+Right now we have:
+backend/
+│
+├── CogniVault.slnx
+│
+└── src/
+    └── CogniVault.Domain/
+        ├── CogniVault.Domain.csproj
+        └── ...
+Notice something... The solution and the project are just sitting beside each other.
+The solution doesn't know the project exists yet.
+Think of it like this. Imagine you bought a new TV. Does your TV remote automatically know about the TV? No. You have to pair it.
+The same thing happens here.
+What is a Solution? Think of the solution as a playlist.
+Spotify Playlist
+Song A
+Song B
+Song C
+The songs exist independently. The playlist simply says "These are the songs I want together."
+
+Exactly the same.
+CogniVault.slnx
+↓
+Domain
+↓
+Application
+↓
+Infrastructure
+↓
+API
+
+The solution doesn't contain code. It simply keeps a list of projects.
+Without adding it... Visual Studio would open the solution and show:
+Solution 'CogniVault'
+(Empty)
+you can test this manually opening slnx file in VS or executing below cmd
+PS C:\Users\rajes\Documents\GitHub\CogniVault\backend> dotnet sln list
+No projects found in the solution.
+
+Even though the Domain project exists on disk. Because the solution hasn't been told about it.
+The Command we should execute to add the project to soln is
+Run: dotnet sln add src/CogniVault.Domain/CogniVault.Domain.csproj
+Let's break it down.
+dotnet - Run the .NET CLI.
+sln - Work with a solution.
+Notice this is different from:
+dotnet new
+Earlier we created something. Now we're managing the solution.
+add Means Add a project into the solution. Not create. Not build.Just register it.
+Project Path
+src/CogniVault.Domain/CogniVault.Domain.csproj
+We're simply telling the solution Here's a project. Please include it.
+What Happens Internally?
+Before:
+CogniVault.slnx
+↓
+(no projects)
+
+After:
+CogniVault.slnx
+↓
+CogniVault.Domain
+
+Nothing changes inside Domain. Nothing changes inside .csproj. Only the solution is updated.
+
+Verify Run:
+dotnet sln list
+Expected:
+PS C:\Users\rajes\Documents\GitHub\CogniVault\backend> dotnet sln list
+Project(s)
+----------
+src\CogniVault.Domain\CogniVault.Domain.csproj
+
+Another Important Concept
+Many beginners think
+Solution
+↓
+contains
+↓
+Project
+
+Actually...
+Solution
+knows about
+↓
+Project
+
+The project can exist without a solution. In fact, you can build it directly: dotnet build src/CogniVault.Domain/CogniVault.Domain.csproj
+The solution is mainly a convenience for organizing and working with multiple projects together.
+
+Next Project: Application
+Before I give you the command, I want to explain why Application is a Class Library too.
+Many people think: "Application sounds like the main application." It isn't.
+In Clean Architecture, Application is not executable.
+It also doesn't run by itself. Just like Domain, it's a library.
+Think about this When someone uploads a document:
+UploadDocument
+Is that an HTTP concept? ❌ No. Is that a database concept? ❌ No.
+It's a business use case. That's why it belongs in the Application project.
+So why is it a Class Library?
+Because it simply contains classes like:
+UploadDocumentCommand
+UploadDocumentHandler
+DeleteDocumentHandler
+AskQuestionHandler
+SearchDocumentsHandler
+These are just C# classes.
+They don't listen for HTTP requests. They don't open ports. They don't start a web server. The API will use them later.
+The Command
+Just like before, we'll create it under src.
+dotnet new classlib -n CogniVault.Application -o src/CogniVault.Application
+What will happen? After running it:
+src/
+│
+├── CogniVault.Domain/
+│
+└── CogniVault.Application/
+    ├── CogniVault.Application.csproj
+    ├── Class1.cs
+    └── obj/
+
+Exactly the same structure as Domain. Then we'll do two important things
+Add it to the solution:
+dotnet sln add src/CogniVault.Application/CogniVault.Application.csproj
+Create our first project reference:
+dotnet add src/CogniVault.Application/CogniVault.Application.csproj reference src/CogniVault.Domain/CogniVault.Domain.csproj
+Notice this new command:
+dotnet add ... reference ...
+
+This is the first time one project will say: "I need classes from another project."
+That single line is what establishes:
+Application
+      │
+      ▼
+Domain
+
+Run these three commands, one at a time:
+dotnet new classlib -n CogniVault.Application -o src/CogniVault.Application
+dotnet sln add src/CogniVault.Application/CogniVault.Application.csproj
+dotnet add src/CogniVault.Application/CogniVault.Application.csproj reference src/CogniVault.Domain/CogniVault.Domain.csproj
+
+
