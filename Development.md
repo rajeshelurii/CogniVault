@@ -2315,5 +2315,698 @@ Our Complete Architecture So Far
                         ▼
                Domain + Infrastructure
 
+Now lets go though the API project what and all are generated
+I can also see you're using the .NET 10 Web API template, which is much cleaner than the old .NET 6/7 templates. Microsoft has removed a lot of boilerplate, which is why you see AddOpenApi() instead of AddSwaggerGen().
+Today, let's go through every single line.
+Program.cs
+Line 1 var builder = WebApplication.CreateBuilder(args);
+This is the first line that executes when you run: dotnet run
+Think of it as: "Create a new ASP.NET Core application that I'm about to configure." Nothing is running yet.
+The server hasn't started. The application doesn't even exist yet. It's just preparing everything.
+What does builder contain?
+Imagine you're building a house.
+Before construction starts you collect:
+Cement
+Bricks
+Wood
+Electric wiring
+Builder is exactly that. It contains everything needed to build the application. Internally it contains things like:
+Configuration
+Dependency Injection Container
+Logging
+Environment
+Hosting Settings
+Web Server Configuration
+Think of it as a giant toolbox.
 
+What is args?
+CreateBuilder(args)
+args are command-line arguments.
+Example: dotnet run --environment Production
+ASP.NET can read those values. For now, you don't need to worry about them.
 
+Next
+builder.Services.AddOpenApi();
+This is one of the most important lines. Let's break it apart.
+What is builder.Services?
+Remember when we discussed interfaces?
+Application contains: IDocumentRepository
+Infrastructure contains: PostgreSqlRepository
+Question:
+How will ASP.NET know that
+IDocumentRepository
+↓
+PostgreSqlRepository
+
+? It won't. Someone has to tell it.
+That place is: builder.Services
+This is called the Dependency Injection Container. Think of it as a phone directory.
+Example:
+Need:
+IDocumentRepository
+↓
+Call
+PostgreSqlRepository
+Later we'll write things like:
+builder.Services.AddScoped<
+    IDocumentRepository,
+    PostgreSqlRepository>();
+Now ASP.NET knows exactly what to create.
+
+Why AddOpenApi()?
+OpenAPI is simply a specification that describes your API. Think of it as a catalog.
+It says:
+Available APIs
+↓
+GET /documents
+POST /documents
+DELETE /documents/{id}
+Tools like Swagger use this catalog to generate documentation and interactive testing pages.
+In .NET 10, Microsoft introduced a simpler built-in OpenAPI setup, which is why the template is cleaner.
+
+Next
+var app = builder.Build();
+This is a huge moment.
+Before this line: builder
+After this line: app
+
+Meaning: Construction is finished. The application now exists.
+Think of buying a car.
+Before assembly: Builder
+After assembly: Car
+Exactly the same idea.
+
+Next
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
+
+Question.
+How does it know we're in Development? Remember this? "ASPNETCORE_ENVIRONMENT": "Development" from launchSettings.json.
+That's where it comes from.
+So during development: Enable OpenAPI
+In production we usually don't expose everything publicly.
+
+Next
+app.UseHttpsRedirection();
+Suppose someone types: http://localhost:5231
+This middleware says: "No."
+Redirect them to https://localhost:7145
+HTTPS encrypts communication between the browser and your API. This is why modern APIs default to HTTPS.
+
+Next
+var summaries = new[]
+This is just Microsoft generating sample data. Nothing architectural here. We'll delete it later.
+
+Next
+app.MapGet("/weatherforecast", () =>
+This is your first endpoint.
+Think of it as:
+URL
+↓
+Method
+↓
+Code
+Example:
+GET/weatherforecast
+↓
+Run this code.
+Inside it
+Enumerable.Range(1, 5) Creates five fake weather records.
+Again... Just demo code. We'll delete it.
+
+Next
+.WithName("GetWeatherForecast"); This gives the endpoint a name. OpenAPI uses it. Nothing special.
+
+Finally
+app.Run(); This is another extremely important line. Without it... Nothing happens.
+This line starts:
+Kestrel
+HTTP Pipeline
+Listening on ports
+After this line the application keeps running.
+
+What is a Pipeline?
+Imagine a factory. A request enters.
+Browser
+↓
+HTTPS
+↓
+Authentication
+↓
+Authorization
+↓
+Logging
+↓
+Endpoint
+↓
+Response
+
+That sequence is called the HTTP pipeline.
+Every app.Use...() you add becomes another stage in that pipeline.
+
+WeatherForecast Record
+record WeatherForecast(...)
+Instead of creating
+class WeatherForecast
+{
+}
+Microsoft now uses a C# record.
+Records are ideal for immutable data transfer objects (DTOs). For this demo, it's just a compact way to define the response model.
+We'll discuss records later because CogniVault will use them in several places.
+
+CogniVault.Api.http file:
+GET {{CogniVault.Api_HostAddress}}/weatherforecast/
+This file lets you test the API directly from your editor. Think of it as a lightweight Postman.
+Later, you might have: 
+POST {{Host}}/documents
+
+###
+
+GET {{Host}}/documents
+
+###
+
+DELETE {{Host}}/documents/1
+
+Very handy during development.
+
+appsettings.json :
+{
+  "Logging": {},
+  "AllowedHosts": "*"
+}
+Logging Controls how much information ASP.NET writes to the console or log files.
+Example:
+
+Information
+Warning
+Error
+Critical
+
+AllowedHosts
+"*"
+Means: Accept requests from any host.
+In production you often restrict this.
+
+launchSettings.json
+This file is only for local development.
+For example:
+"applicationUrl":
+"https://localhost:7145;http://localhost:5231"
+When Visual Studio or dotnet run starts the project, it uses these URLs. This file is not deployed to production.
+
+The Complete Startup Flow
+Now you can finally visualize what happens:
+dotnet run
+      │
+      ▼
+CreateBuilder()
+      │
+      ▼
+Load Configuration
+(appsettings.json)
+      │
+      ▼
+Read Environment
+(Development)
+      │
+      ▼
+Register Services
+(builder.Services)
+      │
+      ▼
+Build Application
+(builder.Build())
+      │
+      ▼
+Configure Middleware
+(app.Use...)
+      │
+      ▼
+Map Endpoints
+(app.MapGet / app.MapControllers)
+      │
+      ▼
+Run Kestrel
+(app.Run())
+      │
+      ▼
+Listening for HTTP Requests
+🏆 One important observation
+
+Notice something about Program.cs.
+There is no business logic. No SQL. No repository. No validation. No OpenAI. No PostgreSQL. Its only responsibility is to compose the application:
+Register services
+Configure middleware
+Map endpoints
+Start the server
+
+This is a hallmark of a well-structured ASP.NET Core application. Business rules belong in the Application layer, data access belongs in Infrastructure, business entities belong in Domain, and Program.cs simply wires everything together.
+
+So what we have built so far
+Let's look at the application as a whole.
+
+Browser(we make a request call like get or other)
+    │
+    ▼
+Kestrel Server(first kestral will listens the request through the port)
+    │
+    ▼
+Program.cs
+    │
+    ▼
+(No Endpoints Yet)
+
+Notice something? If you run the application now: dotnet run
+The application starts successfully. The web server is listening.
+But... There is no endpoint.
+If someone calls: GET /documents
+ASP.NET Core will respond: 404 Not Found
+Because we haven't told it how to handle any requests yet. And that's completely expected.
+
+The Next Big Topic This is where the real ASP.NET Core journey begins. We need to answer a fundamental question:
+How does an HTTP request become a C# method call?
+For example: POST /api/documents
+How does ASP.NET know it should execute:
+UploadDocument()
+{
+    ...
+}
+The answer is:
+Controllers This is one of the most important concepts in ASP.NET Core.
+
+The actual flow is:
+Browser
+↓
+Kestrel (Web Server)
+↓
+Program.cs Configuration
+(Middleware Pipeline)
+↓
+Routing
+↓
+Controller
+↓
+Application
+↓
+Infrastructure
+↓
+Database
+
+So the answer is not directly the Controller.
+Let's understand it with a simple analogy.
+Imagine a Hospital A patient walks into the hospital.
+Does he immediately reach the doctor? No.
+The flow is:
+Hospital Gate
+↓
+Reception
+↓
+Reception checks where to send him
+↓
+Doctor
+↓
+Lab
+↓
+Reports
+
+In ASP.NET Core:
+Browser
+↓
+Kestrel
+(Hospital Gate)
+↓
+Middleware
+(Reception)
+↓
+Routing
+(Which doctor?)
+↓
+Controller
+(Doctor)
+↓
+Application
+(Treatment)
+↓
+Infrastructure
+(Lab)
+↓
+Database
+(Records)
+
+So what does Program.cs do? Remember these lines?
+app.UseHttpsRedirection();
+Tomorrow we'll have lines like:
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
+These lines build the HTTP pipeline. Think of them as the receptionist deciding what happens before the request reaches the controller.
+
+How does ASP.NET know which Controller?
+Now the browser sends: GET /api/documents
+ASP.NET matches:
+URL
+↓
+Route
+↓
+DocumentsController
+↓
+Get()
+
+That matching process is called Routing.
+
+The Complete Flow
+When you type this URL in the browser: GET https://localhost:7145/api/documents
+This is exactly what happens:
+1. Browser sends request
+↓
+2. Kestrel receives it
+↓
+3. Middleware executes
+   - HTTPS
+   - Logging
+   - Authentication
+   - Authorization
+   - etc.
+↓
+4. Routing checks the URL
+↓
+5. Finds DocumentsController
+↓
+6. Executes Get()
+↓
+7. Get() calls Application
+↓
+8. Application calls Infrastructure
+↓
+9. Infrastructure queries PostgreSQL
+↓
+10. Response travels back
+
+11. Session 16 - Understanding Controllers
+Before writing a single line of code, let's answer one question.
+What is a Controller?Think of a controller as a receptionist.
+Imagine someone enters a bank. Customer says: "I want to open an account."
+The receptionist doesn't open the account. The receptionist simply sends the request to the correct department. A Controller does exactly that.
+HTTP Request
+↓
+Controller
+↓
+Application Layer
+↓
+Business Logic
+↓
+Database
+↓
+Response
+
+Notice... The controller should not contain business logic.
+Its job is to:
+Receive the request
+Validate basic HTTP input
+Call the Application layer
+Return the response
+
+Step 1 - Create a Controllers Folder
+Inside: CogniVault.Api
+Create a folder: Controllers
+We keep all controllers here.
+Step 2 - Create DocumentsController.cs
+Create:
+Controllers
+    └── DocumentsController.cs
+
+Don't worry about the code yet. We'll understand every line. The Class
+Start with this:
+using Microsoft.AspNetCore.Mvc;
+
+namespace CogniVault.Api.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class DocumentsController : ControllerBase
+{
+
+}
+
+Now let's understand every part.
+1. Namespace
+namespace CogniVault.Api.Controllers; Nothing new. It simply organizes the class.
+
+2. [ApiController]
+This is called an Attribute. Attributes are metadata. Think of them as sticky notes attached to a class.
+Example:
+📄 DocumentsController
+Sticky Note:
+"I'm an API Controller."
+
+When ASP.NET starts, it scans the assembly. It sees: [ApiController] and says: "This class handles HTTP requests."
+Without this attribute, ASP.NET won't treat it as a proper API controller.
+What benefits does [ApiController] give us?
+Several automatic features:
+Automatic model validation
+Better error responses
+Parameter binding
+API-specific behavior
+We'll see these benefits later. For now remember: It tells ASP.NET: "This class is an API Controller."
+
+3. [Route("api/[controller]")]
+This tells ASP.NET: "Which URL belongs to this controller?" Let's break it apart.
+api/ is literal text.
+Then: [controller] is a placeholder. ASP.NET replaces it with the class name.
+Our class is: DocumentsController
+Remove: Controller
+Remaining: Documents
+So the final route becomes: api/documents
+You didn't type: documents - ASP.NET figured it out automatically.
+Why use [controller]? Suppose tomorrow you rename:
+DocumentsController to FilesController
+The route automatically becomes: api/files
+You don't have to update the attribute. Very convenient.
+
+4. ControllerBase
+public class DocumentsController : ControllerBase
+Notice the colon (:). Earlier we used it for inheritance too.
+Example: Dog : Animal
+Here:
+DocumentsController
+↓
+inherits
+↓
+ControllerBase
+
+Question: Why?
+Because ControllerBase already contains many useful methods.
+Example: Instead of writing:
+return new OkObjectResult(user);
+We simply write:
+return Ok(user);
+Where does Ok() come from? ControllerBase.
+Similarly:
+return BadRequest();
+return NotFound();
+return Created();
+All of these are inherited from ControllerBase. So instead of reinventing the wheel, we inherit the functionality Microsoft already provides.
+
+Why not inherit from Controller?
+Good question. There are two base classes:
+Controller and ControllerBase
+Controller is used when you're returning Views (MVC applications).
+Example: HTML Pages
+CogniVault is an API.
+It returns: JSON not HTML.
+So we inherit from: ControllerBase
+which is lighter and intended for APIs.
+What does the class do right now? Nothing.
+public class DocumentsController : ControllerBase
+{
+
+}
+This is perfectly valid. It simply says: "I'm a controller." But there are no endpoints yet.
+
+Our Next Step The next thing we'll add is our first endpoint:
+[HttpGet]
+public IActionResult Get()
+{
+    return Ok("CogniVault API is running!");
+}
+This may look tiny, but it introduces several important concepts:
+What [HttpGet] means
+What IActionResult is
+What Ok() returns
+How ASP.NET maps a request to this method
+
+🎯 Your Task
+Create:
+
+Controllers/
+    DocumentsController.cs
+
+with exactly this code:
+
+using Microsoft.AspNetCore.Mvc;
+
+namespace CogniVault.Api.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class DocumentsController : ControllerBase
+{
+
+}
+
+Don't add any methods yet.
+We'll write the first endpoint together in the next step, because understanding [HttpGet], IActionResult, and Ok() deserves its own discussion.
+
+builder.Services.AddControllers(); → Register the controller services.
+app.MapControllers() → Tell ASP.NET to route incoming HTTP requests to controller actions.
+
+Session 17 - Our First Endpoint
+Step 1 - Add Our First Action
+Inside the controller, add:
+using Microsoft.AspNetCore.Mvc;
+
+namespace CogniVault.Api.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class DocumentsController : ControllerBase
+{
+    [HttpGet]
+    public IActionResult Get()
+    {
+        return Ok("CogniVault API is running!");
+    }
+}
+Now let's understand every new line.
+What is [HttpGet]? This is another attribute.
+Earlier we learned: [ApiController]
+Now: [HttpGet]
+It tells ASP.NET: "This method should execute when someone sends an HTTP GET request."
+Example:
+GET /api/documents
+↓
+Calls Get()
+What if we had: [HttpPost]
+Then the request would be: POST /api/documents
+Later we'll use: [HttpPost] [HttpPut] [HttpDelete] [HttpPatch]
+Each maps to a different HTTP verb.
+Why is the method named Get()? Actually... It doesn't have to be.
+This is valid:
+[HttpGet]
+public IActionResult Hello()
+{
+    return Ok();
+}
+or
+[HttpGet]
+public IActionResult GetDocuments()
+{
+    return Ok();
+}
+ASP.NET doesn't care about the method name. It cares about the attribute. The attribute determines how the method is reached.
+What is IActionResult? This is one of the most important return types in ASP.NET Core.
+Think of it like this: A controller must always send an HTTP response.
+That response could be: 200 OK
+404 Not Found
+400 Bad Request
+401 Unauthorized
+500 Internal Server Error
+All of those are different kinds of Action Results.
+So instead of returning only one type, we return:
+IActionResult
+which means: "This method will return some HTTP response."
+What does Ok() do?
+return Ok("CogniVault API is running!");
+This returns:
+Status Code: 200 OK
+with the body: "CogniVault API is running!"
+Internally, Ok() is just a helper method from ControllerBase.
+Instead of writing: return new OkObjectResult("CogniVault API is running!");
+we write: return Ok("CogniVault API is running!");
+Much cleaner.
+The Request Flow
+Now the flow finally becomes:
+Browser
+↓
+GET /api/documents
+↓
+Kestrel
+↓
+Middleware
+↓
+Routing
+↓
+DocumentsController
+↓
+Get()
+↓
+return Ok(...)
+↓
+200 OK
+↓
+Browser
+
+For the first time, we have a real endpoint. How can we test it?
+There are three ways.
+Option 1 (Recommended)
+Use the .http file.
+GET {{CogniVault.Api_HostAddress}}/api/documents
+Accept: application/json
+Click Send Request.
+Option 2
+Open your browser:
+https://localhost:7145/api/documents
+Option 3
+Use Swagger/OpenAPI (once we expose the UI in a later step).
+What response should you get?
+Status: 200 OK
+Body:
+"CogniVault API is running!"
+A Small Improvement
+Although "CogniVault API is running!" is fine for learning, APIs usually return JSON objects rather than plain strings.
+For example:
+return Ok(new
+{
+    Message = "CogniVault API is running!"
+});
+The response becomes:
+{
+  "message": "CogniVault API is running!"
+}
+This is closer to what production APIs return, and later we'll define proper response DTOs instead of anonymous objects.
+Why are we doing this?
+You might wonder: "Why not jump straight to Upload Document?"
+Because I want you to understand the basic request lifecycle first.
+Once you're comfortable with:
+Controller
+Route
+HTTP verb
+Action method
+IActionResult
+Ok()
+then adding business logic is just the next step.
+
+🎯 Your Task
+Add the Get() method.
+Run the API.
+Call:
+GET /api/documents
+Confirm you receive:
+{
+  "message": "CogniVault API is running!"
+}
+
+(or the plain string if you keep the simpler version).
+
+For testing the Api we use .http file to make http calls from the file itself its a lightweight way to do testing.
+Inorder to do that we need to add this in .http file
+@CogniVault.Api_HostAddress = http://localhost:5231 #This is setting the local host
+
+### CogniVault API Requests
+GET {{CogniVault.Api_HostAddress}}/api/documents
+Accept: application/json
+
+###
