@@ -1,6 +1,7 @@
 @CogniVault.Api_HostAddress = http://localhost:5231
 
-GET {{CogniVault.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### CogniVault API Requests
+# GET {{CogniVault.Api_HostAddress}}/weatherforecast/
+# Accept: application/json
 
 ###
