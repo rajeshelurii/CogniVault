@@ -2097,4 +2097,223 @@ PS C:\Users\rajes\Documents\GitHub\CogniVault\backend> dotnet add src/CogniVault
 Reference `..\CogniVault.Infrastructure\CogniVault.Infrastructure.csproj` added to the project.
 PS C:\Users\rajes\Documents\GitHub\CogniVault\backend> Infrastructure
 
+Session 14 - Understanding the ASP.NET Core Web API Project
+Open your project.nYou should see something like this:
+CogniVault.Api
+│
+├── Properties
+│   └── launchSettings.json
+│
+├── appsettings.json
+├── appsettings.Development.json
+├── Program.cs
+├── CogniVault.Api.csproj
+├── CogniVault.Api.http
+└── (WeatherForecast files - depending on template)
+Let's understand each one.
+
+1. CogniVault.Api.csproj You've already seen .csproj files before. The API one is no different.
+Its job is:
+Target .NET version
+NuGet packages
+Project References
+Build settings
+For example:
+<Project Sdk="Microsoft.NET.Sdk.Web">
+Notice something different? Earlier our class libraries had: Microsoft.NET.Sdk
+Now we have Microsoft.NET.Sdk.Web
+Why? Because this isn't just C# code anymore.
+It also includes:
+Kestrel Web Server
+ASP.NET Core
+MVC
+Dependency Injection
+Configuration
+Middleware
+HTTP Pipeline
+Everything needed to run a web server.
+
+2. Program.cs ⭐ (Most Important File) If I had to rank the files:
+Program.cs is the brain of the application. Everything starts here.
+Imagine pressing:
+dotnet run
+What happens?
+dotnet run
+↓
+Program.cs executes
+↓
+Creates Web Application
+↓
+Registers Services
+↓
+Builds App
+↓
+Configures Middleware
+↓
+Starts Web Server
+↓
+Listening on localhost
+Everything begins here. Think of Program.cs as...
+Imagine opening a restaurant. Before customers arrive you: Unlock the door Turn on lights Start POS machine Hire employees Prepare kitchen Only then Customers enter.
+That's exactly Program.cs.
+Look inside Program.cs
+It probably looks similar to:
+var builder = WebApplication.CreateBuilder(args);
+Question:
+What is "builder"?
+Think of it as: The application is still under construction.
+Nothing is running yet. You're only configuring it. Then you'll see: builder.Services.AddOpenApi();
+or builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+depending on the template.
+This means:
+Register Swagger. Notice the word: Services We'll spend an entire session on Dependency Injection because this line is one of the most important concepts in ASP.NET Core.
+For now, think of it as: "Register things the application can use."
+Later you'll see
+var app = builder.Build();
+This means: Construction is finished.
+Now create the application. Then you'll see
+app.Run(); This is the line that starts the web server.
+Without it... Nothing happens.
+
+3. appsettings.json
+Imagine your application has settings.
+Example: Database Name Connection String API Keys Logging URLs Where should they go?
+Inside code? No. They belong in configuration. That's exactly what this file is for.
+Example:
+
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information"
+    }
+  }
+}
+
+Later ours will contain:
+{
+  "ConnectionStrings": {
+    "PostgreSql": "..."
+  },
+  "OpenAI": {
+
+  },
+  "BlobStorage": {
+  }
+}
+
+Notice No business logic. Only settings. Why not hardcode?
+Bad:
+string connection =
+"Server=localhost...";
+Good:
+ConnectionStrings Then read it.
+Now changing environments becomes easy.
+
+4. appsettings.Development.json
+Suppose you're developing. Database:
+localhost
+Production?
+Azure PostgreSQL
+Should you edit code every time? No.
+Instead. Development uses appsettings.Development.json
+Production uses appsettings.json
+or
+Environment Variables. ASP.NET automatically loads the correct one. This is very powerful.
+
+5. launchSettings.json Many beginners confuse this with appsettings.
+They are completely different.
+appsettings Configuration for your application.
+launchSettings Configuration for Visual Studio / VS Code while launching.
+Example:
+{
+    "applicationUrl":
+    "https://localhost:7243"
+}
+This tells Visual Studio Which URL to launch.
+It is NOT part of your production deployment.
+
+6. WeatherForecast.cs Microsoft adds this only as a demo.
+It teaches: Controllers
+Models
+JSON
+GET endpoint
+
+For CogniVault We're deleting it later. Because it's unrelated to our project.
+
+7. CogniVault.Api.http
+Many beginners ignore this file. It's actually useful. It allows sending HTTP requests directly from VS Code.
+Example:
+GET https://localhost:5001/weatherforecast
+Click
+Send Request
+No Postman needed. Later we may use it for quick API testing.
+
+8. Properties Folder Contains launchSettings.json Nothing more. Think of it as IDE launch configuration.
+What Happens When You Press Run?
+Let's connect everything.
+
+dotnet run
+        │
+        ▼
+Program.cs
+        │
+        ▼
+Read appsettings.json
+        │
+        ▼
+Register Services
+        │
+        ▼
+Configure Middleware
+        │
+        ▼
+Create HTTP Pipeline
+        │
+        ▼
+Start Kestrel
+        │
+        ▼
+Listening:
+https://localhost:5001
+Kestrel
+
+Question. Who is actually listening for HTTP requests?
+Not Program.cs. Program.cs starts Kestrel.
+Kestrel is ASP.NET Core's built-in web server.
+Browser
+↓
+Kestrel
+↓
+Program.cs Configuration
+↓
+Middleware
+↓
+Controller
+↓
+Application
+↓
+Infrastructure
+↓
+Database
+
+Our Complete Architecture So Far
+                    Browser
+                        │
+                        ▼
+                  Kestrel Server
+                        │
+                        ▼
+                  Program.cs
+                        │
+                        ▼
+                  Controllers
+                        │
+                        ▼
+                 Application
+                        │
+                        ▼
+               Domain + Infrastructure
+
+
 
