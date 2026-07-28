@@ -3001,6 +3001,12 @@ Confirm you receive:
 
 (or the plain string if you keep the simpler version).
 
+Register the controller services.
+builder.Services.AddControllers();
+
+Tell ASP.NET to route incoming HTTP requests to controller actions.
+app.MapControllers();
+
 For testing the Api we use .http file to make http calls from the file itself its a lightweight way to do testing.
 Inorder to do that we need to add this in .http file
 @CogniVault.Api_HostAddress = http://localhost:5231 #This is setting the local host
@@ -3010,3 +3016,35 @@ GET {{CogniVault.Api_HostAddress}}/api/documents
 Accept: application/json
 
 ###
+
+Differences on these
+OpenAPI → Describes your API. OpenAPI is not a testing tool. It is simply a document that describes your API.
+It describes:
+URLs
+HTTP Methods
+Parameters
+Request Body
+Response Body
+Status Codes
+Think of it as a blueprint.
+
+.http file → Sends requests to your API. The .http file is simply a client.
+It literally sends an HTTP request. VS Code (or Visual Studio) sends this request directly to your API. It doesn't need OpenAPI.
+You could even test an API that has no OpenAPI at all.
+
+Swagger UI → Uses the OpenAPI description to let you test your API.
+Swagger reads the OpenAPI document and automatically creates a nice web page. When you click Execute, Swagger sends exactly the same HTTP request that your .http file sends.
+
+OpenAPI
+↓
+describes the API
+-------------------------
+.http
+↓
+calls the API
+-------------------------
+Swagger
+↓
+uses OpenAPI to call the API
+
+
