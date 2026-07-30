@@ -3047,4 +3047,2107 @@ Swagger
 ↓
 uses OpenAPI to call the API
 
+Middleware Pipeline:
+The sequence of these methods is collectively called the middleware pipeline (or the HTTP request pipeline). The steps are that like app.UseHttpsRedirection(); app.MapControllers(); or Logging or Auth are called as Middleware.
+when a request is made, requests do not execute the code inside Program.cs from top to bottom every time. Instead, Program.cs runs exactly once when your application boots up to build a "pipeline" in memory. Every subsequent HTTP request travels through that pre-built pipeline. Which is middleware pipeline. Those are the steps that are above.
+What about services that register on top or program file. Services handle business logic and data (the "tools" your app needs to do its job).
 
+Incoming Request for middleware
+       ⬇️
+┌───────────────────────┐
+│ UseHttpsRedirection() │ ──❌ Is it HTTP? Stop here & redirect!
+└───────────────────────┘
+       ⬇️ (Yes, it's HTTPS)
+┌───────────────────────┐
+│   UseAuthorization()  │ ──❌ Not logged in? Stop here & return 401 Unauthorized!
+└───────────────────────┘
+       ⬇️ (Yes, authorized)
+┌───────────────────────┐
+│   MapControllers()    │ ──🏁 Final destination: Runs your C# Controller code
+└───────────────────────┘
+
+Perfect. This session is one of the most important in Clean Architecture.
+Almost every enterprise API you'll work on will use DTOs, and interviewers often ask why they're needed. Let's understand them from first principles.
+
+Session 19 - DTO (Data Transfer Object)
+Before I explain what a DTO is, let me ask you a question.
+Suppose our database has this table.
+Documents
+------------------------------------------------------------
+Id
+FileName
+BlobPath
+StorageProvider
+EmbeddingStatus
+CreatedBy
+CreatedAt
+UpdatedAt
+IsDeleted
+InternalNotes
+
+Now Angular calls: GET /api/documents
+Should we send all this information to the UI? Probably not.
+The UI may only need:
+File Name
+Uploaded Date
+Embedding Status
+
+Why send everything?
+Without DTO
+Imagine our Domain Entity looks like this:
+public class Document
+{
+    public Guid Id { get; set; }
+    public string FileName { get; set; }
+    public string BlobPath { get; set; }
+    public string StorageProvider { get; set; }
+    public bool IsDeleted { get; set; }
+    public string InternalNotes { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+If we directly return it: return Ok(document);
+Angular receives:
+{
+  "id": "...",
+  "fileName": "Policy.pdf",
+  "blobPath": "...",
+  "storageProvider": "Azure",
+  "isDeleted": false,
+  "internalNotes": "...",
+  "createdAt": "..."
+}
+The frontend now knows about:
+Internal storage
+Internal flags
+Internal implementation
+That is not good design.
+With DTO
+Instead, we create another class.
+public class DocumentDto
+{
+    public Guid Id { get; set; }
+    public string FileName { get; set; }
+    public DateTime UploadedAt { get; set; }
+    public string Status { get; set; }
+}
+Now we return:
+return Ok(documentDto);
+Angular receives:
+{
+  "id": "...",
+  "fileName": "Policy.pdf",
+  "uploadedAt": "...",
+  "status": "Completed"
+}
+Much cleaner. What does DTO mean?
+DTO stands for: Data Transfer Object
+Notice the word: Transfer
+Its only purpose is to transfer data between two systems. It contains data only. No business logic. Think of it Like Amazon
+Amazon has huge internal information about a product.
+Warehouse Rack
+Supplier Cost
+Internal SKU
+Profit Margin
+Tax Rules
+Inventory Rules
+Do you see all of that on Amazon's website? No.
+You only see: Product Name
+Price
+Rating
+Images
+The page you see is like a DTO.
+The internal warehouse model is like the Domain Entity.
+So what's the difference?
+Domain Entity Represents the business. Real business object.
+Example: Document
+It contains everything needed by the business.
+DTO Represents what another application needs.
+Usually:
+Angular
+Mobile App
+Another API
+Where will DTOs live?
+Since we're following Clean Architecture:
+API
+↓
+Application
+↓
+Domain
+↓
+Infrastructure
+Where should they go? Not in API. Not in Domain. We'll keep them in:
+Application
+↓
+DTOs
+Why? Because the Application layer defines the contract between the outside world and the business logic.
+The API simply receives a request and returns a response. The Application layer decides what that request and response look like.
+Request DTO vs Response DTO We'll actually have two kinds.
+Request DTO Data coming into our API.
+Example:
+{
+    "fileName": "Policy.pdf"
+}
+Response DTO
+Data going out of our API.
+Example:
+{
+    "id": "...",
+    "fileName": "Policy.pdf",
+    "status": "Completed"
+}
+So there are always two directions.
+Angular
+↓
+Request DTO
+↓
+Application
+↓
+Response DTO
+↓
+Angular
+Why not use the Domain Entity everywhere? This is a very common beginner question.
+Imagine next year we add a new property to the Document entity.
+public string EncryptionKey { get; set; }
+If you're returning the entity directly...
+Suddenly every API starts exposing:
+"encryptionKey": "..."
+Even though the frontend should never see it. With DTOs... Nothing changes until you decide to include that field.
+That's one of the biggest benefits: you control exactly what crosses the API boundary.
+How will CogniVault use them? Later we'll have something like:
+Application
+│
+├── Documents
+│
+│   ├── Commands
+│   │      UploadDocumentCommand
+│   │
+│   ├── Queries
+│   │      GetDocumentsQuery
+│   │
+│   ├── DTOs
+│   │      DocumentDto
+│   │      UploadDocumentRequest
+│   │      UploadDocumentResponse
+
+Notice something. The DTOs belong with the feature. That's a big part of Vertical Slice Architecture.
+Everything related to "Documents" stays together. One thing I'd like to adjust
+Earlier, we talked about creating layers like API, Application, Domain, and Infrastructure. Now we're starting to think by feature inside those layers.
+Instead of having one giant DTOs folder for the entire application, we'll organize them by feature:
+Application
+└── Documents
+    ├── Commands
+    ├── Queries
+    ├── DTOs
+    └── ...
+As CogniVault grows to include Chat, Authentication, Search, and Administration, this organization keeps each feature self-contained and much easier to navigate.
+
+Session 20 - Designing the First Real Feature
+Before writing code, every senior developer asks one question: "What problem are we solving?"
+We don't create classes first. We design the feature first.
+Our Product Let's remember what CogniVault does.
+User
+↓
+Uploads PDF
+↓
+Store File
+↓
+Save Metadata
+↓
+Generate Chunks
+↓
+Generate Embeddings
+↓
+Store Vectors
+↓
+User asks question
+↓
+AI answers with citations
+The first feature is obviously: Upload Document
+What Happens When the User Uploads a Document? Imagine you're using the application.
+You click: Upload Document
+You select: Employee_Handbook.pdf
+Then click Upload.
+What should happen? Let's think about the backend.
+Angular
+↓
+POST /api/documents
+↓
+API receives request
+↓
+Validate request
+↓
+Store PDF
+↓
+Save document information
+↓
+Return success
+Notice something... At this stage we're not generating embeddings.
+Why? Because uploading and AI processing are two different responsibilities.
+Uploading should be fast. AI processing may take several seconds or even minutes. We'll handle AI processing later using background jobs.
+Step 1 - Design the API
+Instead of coding immediately, let's design it.
+Endpoint
+POST /api/documents
+Request
+Initially, the user uploads a file. In ASP.NET Core, uploaded files are represented by:
+IFormFile
+So conceptually the request is: File
+Later we might also include:
+Category
+Tags
+Description
+But for version 1:
+PDF File is enough.
+Step 2 - What Should We Return?
+Should we return: true
+❌ Not useful.
+Should we return: Uploaded Successfully
+Better, but still limited.
+A better response is:
+{
+    "id": "a1b2c3...",
+    "fileName": "Employee_Handbook.pdf",
+    "status": "Uploaded"
+}
+Why? Because Angular now knows:
+Which document was created what its ID is What its current status is
+That ID will be useful later for viewing details, deleting the document, or checking processing progress.
+Step 3 - What Layers Are Involved? Let's map the flow.
+Angular
+↓
+DocumentsController
+↓
+Application
+↓
+Infrastructure
+↓
+Database + Blob Storage
+Notice something important. The controller doesn't know anything about databases or Azure Blob Storage.
+It simply passes the request to the Application layer.
+Step 4 - What Classes Will We Eventually Need?
+Don't create these yet—just understand the roadmap.
+Application
+└── Documents
+    ├── Commands
+    │      UploadDocumentCommand.cs
+    │      UploadDocumentCommandHandler.cs
+    │
+    ├── DTOs
+    │      UploadDocumentRequest.cs
+    │      UploadDocumentResponse.cs
+
+Each class has a single responsibility:
+UploadDocumentRequest → Data coming into the API.
+UploadDocumentResponse → Data going back to the client.
+UploadDocumentCommand → Represents the action "Upload a document."
+UploadDocumentCommandHandler → Contains the business logic to perform that action.
+Why Are There So Many Classes?
+This is another question many developers ask. Wouldn't this work?
+public IActionResult Upload(IFormFile file)
+{
+    // 200 lines of code...
+}
+Yes, it would. But imagine adding:
+Validation
+Virus scanning
+Blob Storage upload
+Database save
+Duplicate file detection
+Logging
+AI processing
+Suddenly your controller becomes 500 lines long. Instead, we separate responsibilities.
+Controllers stay small. Business logic lives elsewhere. Our Development Strategy
+We're not going to build everything at once.
+We'll follow this sequence:
+1. Design the feature ✅
+2. Create Request DTO
+3. Create Response DTO
+4. Create Command
+5. Create Command Handler
+6. Controller calls Command
+7. Stub implementation (no database yet)
+8. Add persistence later
+Every step leaves the application in a working state.
+One More Important Concept Notice that we're designing the feature before writing code.
+This is exactly how experienced teams work. They don't ask: "Which class should I create?"
+They ask: "What should happen when the user clicks Upload?" Once the workflow is clear, the classes almost design themselves.
+
+First, what is a Command?
+imagine you're the manager of a company. An employee comes and says: "I want to apply for leave."
+Is he asking for information? No.
+He wants the system to do something. That's a command. A command means: "Please perform an action."
+Now compare that with another request. Employee asks: "How many leave days do I have?" Nothing changes. He just wants information.
+That's called a Query.
+
+This idea comes from CQRS (Command Query Responsibility Segregation). 
+There are only two kinds of operations:
+READ
+↓
+Query
+WRITE
+↓
+Command
+
+In CogniVault Upload Document -> Command Delete Document -> Command Get Documents -> Query Search Documents -> Query
+so application naturally divides in to
+Application
+├── Commands
+│      Upload
+│      Delete
+│      Rename
+│
+└── Queries
+       GetAll
+       GetById
+       Search
+So why create two classes? Because each has one job.
+Class	Responsibility
+UploadDocumentCommand	        Carry the request data
+UploadDocumentCommandHandler	Execute the business logic
+
+One last interesting fact Later, when we introduce MediatR (or build something similar ourselves first), you'll see code like this: await _mediator.Send(command);
+Look carefully. We're sending the command, not calling the handler directly.
+The mediator receives the command and automatically finds the correct handler.
+That's why the naming is so important. The framework can automatically match:
+UploadDocumentCommand
+UploadDocumentCommandHandler
+We're not going to introduce MediatR immediately.
+
+Session 21 – Our First DTO
+Before we write a single class, I want to explain why we're creating a Request DTO first. Imagine the user uploads a document from Angular.
+The browser sends something like: POST /api/documents
+Along with the file.
+ASP.NET Core receives the HTTP request. But our application doesn't understand HTTP.
+Our Application layer understands objects.
+So something has to convert:
+HTTP Request into C# Object
+That object is our Request DTO.
+The Request Flow
+Angular
+↓
+HTTP Request
+↓
+ASP.NET Core
+↓
+UploadDocumentRequest
+↓
+UploadDocumentCommand
+↓
+UploadDocumentCommandHandler
+Notice something important.
+The Request DTO belongs to the API contract. The Command belongs to the business logic.
+They are similar, but they serve different purposes. "Can't we use the Command directly?"
+This is another question many developers ask. For a very small application, you could.
+Example:
+Angular
+↓
+UploadDocumentCommand
+↓
+Handler
+It would work. So why are we introducing another object?
+Because APIs change. Business logic changes.
+Sometimes independently.
+For example: Today the API sends:
+{
+   "file": "...pdf..."
+}
+Next year the UI team wants:
+{
+   "file": "...pdf...",
+   "category": "HR",
+   "tags": ["policy","employee"]
+}
+The API contract changed. That doesn't necessarily mean the business command should change in the same way.
+Keeping them separate gives us flexibility. Where should the DTO live?
+Remember our Application structure? Eventually it will look like this:
+Application
+│
+└── Documents
+    │
+    ├── Commands
+    │
+    ├── Queries
+    │
+    ├── DTOs
+    │
+    └── Interfaces
+We'll place our DTOs inside the Documents feature because they're only used by that feature.
+Our First Request DTO
+Let's think about what information we actually need. Today...
+Only one thing. The uploaded file.
+So conceptually:
+public class UploadDocumentRequest
+{
+    public IFormFile File { get; set; }
+}
+But... I'm not going to ask you to create this yet. 😊
+Why? Because I want to teach you one more important concept first.
+Look carefully.
+public IFormFile File { get; set; }
+Where does IFormFile come from? Not our code.
+Not the Application layer. It comes from ASP.NET Core.
+That creates an architectural discussion. Here's the challenge
+Remember our Application layer? It should not know anything about ASP.NET Core.
+If we write:
+using Microsoft.AspNetCore.Http;
+inside Application... Then Application now depends on ASP.NET.
+That violates one of our Clean Architecture goals:
+Application
+❌ Should not depend on Web Frameworks
+So what should we do?
+There are two approaches.
+Approach 1
+Put IFormFile directly in the Request DTO.
+Simple. Many projects do this.
+Approach 2
+Keep the Application completely independent of ASP.NET Core. The API receives IFormFile.
+Then maps it into an Application model. This is a cleaner architecture and is often preferred in larger systems.
+Which approach are we going to use? We're going to choose Approach 2. Not because the first one is wrong.
+But because CogniVault is your flagship project, and I want it to demonstrate strong architectural boundaries.
+What does that mean? It means we'll actually have:
+HTTP Request
+↓
+API Model
+↓
+Application Command
+↓
+Handler
+Instead of leaking ASP.NET types into the Application layer. Why am I slowing down here?
+Because this is one of those decisions that separates:
+"The code works."
+from
+"The architecture is clean."
+Many tutorials skip this discussion entirely. I don't want you to simply memorize where classes go—I want you to understand why they belong there.
+Today's Goal We won't create any new classes just yet.
+Instead, in our next step we'll answer one architectural question:
+How do we receive an uploaded file in the API without making the Application layer depend on ASP.NET Core?
+Once you understand that boundary, creating the DTOs, Commands, and Handlers will feel very natural, and you'll see exactly why each class exists.
+
+Perfect. This session is where you'll see why ASP.NET Core and Clean Architecture work so well together.
+
+Session 22 - Model Binding
+
+Today we're going to learn one of ASP.NET Core's most powerful features:
+
+Model Binding
+
+You use it every day in ASP.NET Core, even if you don't realize it.
+
+Let's start with a simple example.
+
+Suppose Angular sends:
+
+POST /api/users
+Content-Type: application/json
+
+{
+    "name": "Rajesh",
+    "age": 27
+}
+
+Question:
+
+How does this JSON become a C# object?
+
+You never wrote code like:
+
+var request = new CreateUserRequest();
+
+request.Name = json["name"];
+request.Age = json["age"];
+
+Yet somehow your controller receives:
+
+public IActionResult Create(CreateUserRequest request)
+{
+}
+
+How?
+
+ASP.NET Core did it automatically.
+
+That automatic conversion is called Model Binding.
+
+Think of it like a Translator
+
+Imagine two people.
+
+Angular speaks JSON
+
+↓
+
+Translator
+
+↓
+
+C# speaks Objects
+
+The translator is Model Binding.
+
+Example
+
+Suppose we have:
+
+public class CreateUserRequest
+{
+    public string Name { get; set; }
+
+    public int Age { get; set; }
+}
+
+And the controller:
+
+[HttpPost]
+public IActionResult Create(CreateUserRequest request)
+{
+    return Ok();
+}
+
+Angular sends:
+
+{
+   "name":"Rajesh",
+   "age":27
+}
+
+ASP.NET automatically creates:
+
+CreateUserRequest request = new CreateUserRequest
+{
+    Name = "Rajesh",
+    Age = 27
+};
+
+You never write this code.
+
+ASP.NET does it.
+
+Another Example
+
+Suppose the URL is:
+
+GET /api/documents/15
+
+Controller:
+
+[HttpGet("{id}")]
+public IActionResult GetById(int id)
+{
+}
+
+Again...
+
+You never wrote:
+
+id = 15;
+
+ASP.NET did.
+
+It looked at:
+
+/api/documents/15
+
+and automatically assigned:
+
+id = 15
+
+Again...
+
+Model Binding.
+
+Another Example
+
+Query String.
+
+URL:
+
+GET /api/documents/search?keyword=policy
+
+Controller:
+
+public IActionResult Search(string keyword)
+{
+}
+
+ASP.NET automatically does:
+
+keyword = "policy";
+
+Again...
+
+Model Binding.
+
+So what exactly does Model Binding do?
+
+It converts HTTP data into C# objects.
+
+HTTP
+
+↓
+
+Route Values
+
+↓
+
+Query Strings
+
+↓
+
+Headers
+
+↓
+
+Body
+
+↓
+
+Forms
+
+↓
+
+Files
+
+↓
+
+Model Binding
+
+↓
+
+C# Objects
+
+This is one of the reasons ASP.NET Core feels so productive.
+
+Now let's come back to CogniVault.
+
+The browser uploads:
+
+EmployeeHandbook.pdf
+
+The request is:
+
+POST /api/documents
+
+Content Type:
+
+multipart/form-data
+
+because we're sending a file.
+
+Question:
+
+Can ASP.NET automatically convert the uploaded file?
+
+Yes.
+
+It converts it into:
+
+IFormFile
+
+Again...
+
+That's Model Binding.
+
+So where does IFormFile belong?
+
+Now we're back to the architectural discussion.
+
+Suppose we write:
+
+public class UploadDocumentRequest
+{
+    public IFormFile File { get; set; }
+}
+
+This class now needs:
+
+using Microsoft.AspNetCore.Http;
+
+Question:
+
+Can we put this class inside the Application project?
+
+No.
+
+Because now Application depends on ASP.NET Core.
+
+That breaks one of our Clean Architecture principles.
+
+So what's the solution?
+
+We'll split the responsibility.
+
+Instead of one object, we'll use two.
+
+API Model
+public class UploadDocumentRequest
+{
+    public IFormFile File { get; set; }
+}
+
+Lives in:
+
+CogniVault.Api
+
+because it depends on ASP.NET.
+
+Application Command
+public class UploadDocumentCommand
+{
+    public Stream FileStream { get; set; }
+
+    public string FileName { get; set; }
+}
+
+Lives in:
+
+CogniVault.Application
+
+Notice something.
+
+No ASP.NET types.
+
+Only .NET types.
+
+Much cleaner.
+
+The Flow
+Browser
+
+↓
+
+multipart/form-data
+
+↓
+
+ASP.NET Model Binding
+
+↓
+
+UploadDocumentRequest (API)
+
+↓
+
+Controller
+
+↓
+
+UploadDocumentCommand (Application)
+
+↓
+
+Handler
+
+Notice...
+
+The Controller becomes the bridge between the Web world and the Business world.
+
+Why is this considered good architecture?
+
+Imagine five years from now.
+
+Today you have:
+
+Angular
+
+Tomorrow your company adds:
+
+Mobile App
+Desktop App
+Another API
+Background Service
+
+None of those know about IFormFile.
+
+They can all create the same UploadDocumentCommand.
+
+Your business logic remains unchanged.
+
+That's the power of keeping your Application layer independent.
+
+Now let's answer a question you might have
+
+"Doesn't this mean we have to copy data from one object to another?"
+
+Yes.
+
+Example:
+
+var command = new UploadDocumentCommand
+{
+    FileName = request.File.FileName,
+    FileStream = request.File.OpenReadStream()
+};
+
+At first it feels like extra work.
+
+But in return you get:
+
+A clean architecture
+Better testability
+Independence from ASP.NET Core
+Easier future changes
+
+Most enterprise systems consider that a worthwhile trade-off.
+
+Our Next Coding Step
+
+Now we're finally ready to create our first real models.
+
+We'll create:
+
+CogniVault.Api
+└── Models
+    └── UploadDocumentRequest.cs
+
+and later:
+
+CogniVault.Application
+└── Documents
+    └── Commands
+        └── UploadDocumentCommand.cs
+
+For the first time, you'll see the controller transform one model into another and pass it into the Application layer.
+
+That will be the first complete example of Clean Architecture in action inside CogniVault.
+
+Before we write any code...
+
+I want to point out something you've probably noticed.
+
+Earlier in the project, we created projects (API, Application, Domain, Infrastructure).
+
+Now we're creating boundaries between them.
+
+That's the real goal of Clean Architecture—not just having multiple projects, but ensuring each project has a clear responsibility and doesn't accidentally depend on things it shouldn't.
+
+Once you see the controller map an API model into an Application command, the entire architecture will start feeling much more natural.
+
+Excellent. You're asking the right questions, and I can see you're not just trying to finish the project—you want to understand why every decision is made. That's exactly how senior engineers learn.
+
+We're now going to write our first feature in the enterprise way.
+
+Session 23 - Creating the API Request Model
+
+Today we're finally creating our first model.
+
+But before we type a single line of code, let's answer one question.
+
+Why are we creating it in the API project?
+
+Remember our discussion:
+
+Browser
+    │
+    ▼
+HTTP Request
+    │
+    ▼
+ASP.NET Core
+    │
+    ▼
+UploadDocumentRequest   ← API Project
+    │
+    ▼
+Controller
+    │
+    ▼
+UploadDocumentCommand   ← Application Project
+
+The browser communicates using HTTP.
+
+The Application layer communicates using C# objects.
+
+The API project's job is to translate between those two worlds.
+
+That's why this model belongs in the API project.
+
+Folder Structure
+
+Inside CogniVault.Api, let's create a new folder.
+
+CogniVault.Api
+│
+├── Controllers
+├── Models
+│     └── Documents
+└── Program.cs
+Why Models/Documents?
+
+You might ask:
+
+"Why not just put everything inside one Models folder?"
+
+Because six months from now we'll have:
+
+Models
+│
+├── Documents
+├── Authentication
+├── Chat
+├── Users
+├── Search
+├── Admin
+
+Feature-based organization scales much better than having dozens of unrelated model classes in one folder.
+
+Create the Request Model
+
+Create the file:
+
+UploadDocumentRequest.cs
+
+Inside:
+
+using Microsoft.AspNetCore.Http;
+
+namespace CogniVault.Api.Models.Documents;
+
+public class UploadDocumentRequest
+{
+    public IFormFile File { get; set; } = default!;
+}
+Let's Understand Every Line
+Line 1
+using Microsoft.AspNetCore.Http;
+
+Why?
+
+Because IFormFile belongs to ASP.NET Core.
+
+It is not part of standard C#.
+
+Without this namespace:
+
+IFormFile
+
+won't be recognized.
+
+Namespace
+namespace CogniVault.Api.Models.Documents;
+
+Notice how the namespace matches the folder structure.
+
+CogniVault.Api
+        ↓
+Models
+        ↓
+Documents
+
+This makes the project easy to navigate.
+
+The Class
+public class UploadDocumentRequest
+
+Think of this class as a container.
+
+Its only purpose is to hold data coming from the HTTP request.
+
+No validation.
+
+No business logic.
+
+No database code.
+
+Just data.
+
+The Property
+public IFormFile File { get; set; } = default!;
+
+Let's break it down.
+
+IFormFile
+
+Represents the uploaded file.
+
+When Angular sends:
+
+EmployeeHandbook.pdf
+
+ASP.NET converts it into an IFormFile object.
+
+get; set;
+
+Means the value can be:
+
+assigned by ASP.NET Core (during model binding)
+read later in the controller
+= default!;
+
+You may not have seen this before.
+
+Why isn't it simply:
+
+public IFormFile File { get; set; }
+
+Because nullable reference types are enabled by default in modern .NET.
+
+The compiler says:
+
+"This property is non-nullable, but I don't see where it's initialized."
+
+We know ASP.NET Core will populate it during model binding.
+
+So we're telling the compiler:
+
+"Trust me—this will be assigned before it's used."
+
+That's what:
+
+= default!;
+
+means.
+
+Later, we'll also learn other ways to satisfy the compiler, such as using the required keyword.
+
+What Happens at Runtime?
+
+Suppose Angular uploads:
+
+EmployeeHandbook.pdf
+
+ASP.NET Core performs model binding and effectively creates:
+
+var request = new UploadDocumentRequest
+{
+    File = uploadedFile
+};
+
+You never write that code.
+
+ASP.NET Core does it for you.
+
+Why Doesn't This Go Into the Application Layer?
+
+Because this class depends on:
+
+IFormFile
+
+which belongs to:
+
+Microsoft.AspNetCore.Http
+
+Our Application project should not know anything about ASP.NET Core.
+
+That's why we separate it.
+
+Today's Goal
+
+Create:
+
+CogniVault.Api
+└── Models
+    └── Documents
+        └── UploadDocumentRequest.cs
+
+with the class shown above.
+
+Don't modify the controller yet.
+
+After You've Created It
+
+We'll move to the next step:
+
+Creating our first UploadDocumentCommand in the Application project.
+
+That's where you'll see the first real transition from the Web layer into the Business layer, and the Clean Architecture flow we've been discussing will start to come alive with actual code.
+
+1. Why is IFormFile not showing an error even though I didn't add using Microsoft.AspNetCore.Http?
+
+This is due to a feature introduced in modern C# called Implicit Usings.
+
+Let's verify it.
+
+Open your CogniVault.Api.csproj.
+
+2. Is this Model different from a DTO?
+
+This is an even better question.
+
+The answer is:
+
+Technically yes, but conceptually they're very similar.
+
+Let's break it down.
+
+What is a DTO?
+
+DTO means:
+
+Data Transfer Object
+
+Its only job is to transfer data.
+
+Example:
+
+public class DocumentDto
+{
+    public Guid Id { get; set; }
+
+    public string FileName { get; set; } = string.Empty;
+}
+
+No logic.
+
+Just data.
+
+What is an API Model?
+
+Our class is:
+
+public class UploadDocumentRequest
+{
+    public IFormFile File { get; set; } = default!;
+}
+
+It also only contains data.
+
+No logic.
+
+No calculations.
+
+So...
+
+It behaves exactly like a DTO.
+
+Perfect. Now we're going to build the bridge between the API layer and the Application layer.
+
+This is the first time you'll actually see Clean Architecture in action.
+
+Session 24 - Creating the First Command
+
+Let's remember our flow.
+
+Browser
+    │
+    ▼
+HTTP Request
+    │
+    ▼
+UploadDocumentRequest   (API)
+    │
+    ▼
+DocumentsController
+    │
+    ▼
+UploadDocumentCommand   (Application)
+    │
+    ▼
+UploadDocumentCommandHandler
+
+Today we're creating the highlighted class.
+
+Step 1 - Create the Folder Structure
+
+Inside CogniVault.Application, create:
+
+Documents
+│
+└── Commands
+
+Now inside Commands, create:
+
+UploadDocumentCommand.cs
+
+Your Application project will start looking like this:
+
+CogniVault.Application
+│
+└── Documents
+    │
+    └── Commands
+        │
+        └── UploadDocumentCommand.cs
+
+Notice something.
+
+Everything is grouped by feature, not by type.
+
+That is Vertical Slice Architecture.
+
+Step 2 - What should this command contain?
+
+Let's think like business developers.
+
+The business doesn't know anything about:
+
+IFormFile
+
+It only needs:
+
+The file contents
+The file name
+
+That's all.
+
+So conceptually:
+
+Upload Document
+
+↓
+
+File Name
+
++
+
+File Content
+Step 3 - Write the Class
+
+Create:
+
+namespace CogniVault.Application.Documents.Commands;
+
+public class UploadDocumentCommand
+{
+    public string FileName { get; init; } = string.Empty;
+
+    public Stream FileStream { get; init; } = Stream.Null;
+}
+
+Don't worry if Stream looks unfamiliar—we'll explain it.
+
+Let's Understand Every Line
+Namespace
+namespace CogniVault.Application.Documents.Commands;
+
+Again...
+
+Namespace mirrors the folder structure.
+
+Easy to navigate.
+
+Class
+public class UploadDocumentCommand
+
+This class represents one business action.
+
+Not a file.
+
+Not a document.
+
+An action.
+
+Upload this document.
+
+That's why it's called a Command.
+
+Property 1
+public string FileName { get; init; } = string.Empty;
+
+Question:
+
+Why aren't we storing:
+
+EmployeeHandbook.pdf
+
+inside the handler?
+
+Because the command should carry everything the handler needs.
+
+Why init instead of set?
+
+You've probably seen:
+
+public string Name { get; set; }
+
+before.
+
+Here we're using:
+
+get;
+init;
+
+init means:
+
+The value can be assigned only when the object is created.
+
+Example:
+
+var command = new UploadDocumentCommand
+{
+    FileName = "Policy.pdf"
+};
+
+This is allowed.
+
+Later:
+
+command.FileName = "Another.pdf";
+
+❌ Not allowed.
+
+The object becomes immutable after creation.
+
+Why is this good?
+
+Commands represent something that already happened.
+
+The user clicked Upload.
+
+The command should not change halfway through processing.
+
+Immutable objects are:
+
+Safer
+Easier to debug
+Easier to reason about
+
+Modern .NET code often prefers init for request-like objects.
+
+Property 2
+public Stream FileStream { get; init; } = Stream.Null;
+
+Now let's understand Stream.
+
+What is a Stream?
+
+Forget .NET for a moment.
+
+Imagine water flowing through a pipe.
+
+Tank
+
+↓
+
+Pipe
+
+↓
+
+Glass
+
+Water flows continuously.
+
+You don't grab the whole pipe.
+
+You just read what flows through it.
+
+A file works similarly.
+
+PDF File
+
+↓
+
+Stream
+
+↓
+
+Your Code
+
+A Stream is simply a way of reading data.
+
+It doesn't matter whether the data comes from:
+
+A PDF
+A ZIP
+A network
+Memory
+Azure Blob Storage
+
+Everything can be represented as a stream.
+
+Think of it like this.
+
+Instead of saying:
+
+"Here's a PDF."
+
+We're saying:
+
+"Here's a flow of bytes."
+
+The business layer doesn't care where those bytes came from.
+
+That makes it much more flexible.
+
+Why not keep IFormFile?
+
+Because IFormFile belongs to ASP.NET Core.
+
+Stream belongs to .NET itself.
+
+That's a huge difference.
+
+API Layer
+
+↓
+
+IFormFile
+
+↓
+
+Controller
+
+↓
+
+Stream
+
+↓
+
+Application Layer
+
+The Application layer is now completely independent of ASP.NET Core.
+
+What is Stream.Null?
+
+Just like we used:
+
+string.Empty
+
+instead of:
+
+null
+
+we use:
+
+Stream.Null
+
+instead of:
+
+null
+
+It's simply an empty stream.
+
+It satisfies the compiler and avoids null reference issues.
+
+Why are we not adding DocumentId?
+
+Because this is an Upload command.
+
+The document doesn't exist yet.
+
+The handler will generate the ID later.
+
+Visual Comparison
+API Model
+UploadDocumentRequest
+
+↓
+
+IFormFile
+
+Represents HTTP.
+
+Application Command
+UploadDocumentCommand
+
+↓
+
+FileName
+
+↓
+
+Stream
+
+Represents Business.
+
+Notice how we removed every ASP.NET dependency.
+
+That is exactly what Clean Architecture wants.
+
+One More Modern C# Concept
+
+You noticed we're using:
+
+init
+
+instead of set.
+
+Throughout this project, I'd like to use modern C# features where they genuinely improve the code. Since you're using .NET 10 and Visual Studio 2026, we'll gradually learn features like:
+
+init
+required
+File-scoped namespaces
+Primary constructors (where appropriate)
+Collection expressions
+Pattern matching improvements
+
+I'll always explain why we're using a feature rather than adopting it just because it's new.
+
+🎯 Your Task
+
+Create:
+
+CogniVault.Application
+└── Documents
+    └── Commands
+        └── UploadDocumentCommand.cs
+
+with the class above.
+
+Don't create the handler yet.
+
+Session 25 - Connecting the API to the Application
+
+Before we create the Handler, we're going to make the Controller create a Command.
+
+This may seem like a small step, but it teaches one of the most important responsibilities of a Controller.
+
+Question
+
+What should a Controller do?
+
+Many beginners think:
+
+"A controller contains all the business logic."
+
+❌ No.
+
+A Controller should be very thin.
+
+Its responsibilities are only:
+
+Receive the HTTP request.
+Validate basic input (later).
+Convert the request into an Application object.
+Call the Application layer.
+Return the HTTP response.
+
+That's it.
+
+Think of the controller as a receptionist.
+
+Customer
+
+↓
+
+Receptionist
+
+↓
+
+Department
+
+The receptionist doesn't solve the customer's problem.
+
+They simply send them to the correct department.
+
+Exactly the same here.
+
+Step 1 - Update the Controller
+
+First, we'll add a new endpoint.
+
+Instead of:
+
+[HttpGet]
+public IActionResult Get()
+
+we'll keep that (it's useful as a health check for now) and add a POST endpoint.
+
+Your controller will eventually have two endpoints:
+
+GET  /api/documents
+
+POST /api/documents
+Step 2 - Add the Required Namespaces
+
+At the top of DocumentsController.cs, add:
+
+using CogniVault.Api.Models.Documents;
+using CogniVault.Application.Documents.Commands;
+
+Now the controller knows about:
+
+API Models
+Application Commands
+
+Notice...
+
+It still doesn't know anything about:
+
+Database
+Blob Storage
+Repository
+
+That's intentional.
+
+Step 3 - Create the POST Action
+
+Add this method inside your controller:
+
+[HttpPost]
+public IActionResult Upload(UploadDocumentRequest request)
+{
+    var command = new UploadDocumentCommand
+    {
+        FileName = request.File.FileName,
+        FileStream = request.File.OpenReadStream()
+    };
+
+    return Ok(new
+    {
+        Message = "Command created successfully.",
+        FileName = command.FileName
+    });
+}
+
+Don't worry—we'll examine every line.
+
+Understanding the Method
+[HttpPost]
+
+This tells ASP.NET Core:
+
+"When a POST request comes to /api/documents, execute this method."
+
+Remember:
+
+GET  → Read
+
+POST → Create
+
+PUT  → Update
+
+DELETE → Delete
+Parameter
+UploadDocumentRequest request
+
+Question:
+
+Who creates this object?
+
+Not us.
+
+ASP.NET Core Model Binding.
+
+When the client uploads a file, ASP.NET automatically creates the UploadDocumentRequest object and fills its File property.
+
+That's the model binding we discussed in the previous session.
+
+Creating the Command
+var command = new UploadDocumentCommand
+{
+    FileName = request.File.FileName,
+    FileStream = request.File.OpenReadStream()
+};
+
+This is the first time we're crossing the architectural boundary.
+
+Look carefully.
+
+API Model
+
+↓
+
+Application Command
+
+The Controller is performing a mapping.
+
+It's taking a Web-specific object (IFormFile) and converting it into a Business-specific object (Stream + FileName).
+
+This is exactly why we separated those two models.
+
+OpenReadStream()
+
+You asked about Stream earlier.
+
+This line:
+
+request.File.OpenReadStream()
+
+means:
+
+"Give me a stream that allows me to read the contents of the uploaded file."
+
+Imagine uploading:
+
+EmployeeHandbook.pdf
+
+OpenReadStream() doesn't load the whole file into a string.
+
+It gives us a pipe through which we can read the file's bytes.
+
+That's much more efficient, especially for large files.
+
+Temporary Response
+
+Right now we're returning:
+
+return Ok(new
+{
+    Message = "Command created successfully.",
+    FileName = command.FileName
+});
+
+We're not uploading anything yet.
+
+We're simply proving that:
+
+The request was received.
+Model Binding worked.
+The command was created successfully.
+
+One step at a time.
+
+How Should We Test This?
+
+This is an important point.
+
+Our previous .http request was:
+
+GET /api/documents
+
+That won't test file uploads.
+
+Uploading a file uses:
+
+multipart/form-data
+
+A plain .http request becomes awkward for that.
+
+For now, I recommend using Swagger UI (once we enable it) or Postman/Bruno because they provide a file picker.
+
+Later, I'll also show you how to write multipart requests in a .http file so you know both approaches.
+
+What Have We Achieved?
+
+For the first time, your application will perform this flow:
+
+Browser
+
+↓
+
+HTTP POST
+
+↓
+
+ASP.NET Model Binding
+
+↓
+
+UploadDocumentRequest (API)
+
+↓
+
+DocumentsController
+
+↓
+
+UploadDocumentCommand (Application)
+
+↓
+
+Return Success
+
+Even though no business logic exists yet, you've already implemented the most important architectural boundary in the application.
+
+🎯 Your Task
+Add the POST action to DocumentsController.
+Keep the existing GET endpoint.
+Build the project and ensure there are no errors.
+
+Don't worry if we can't fully test the upload yet—that's expected.
+
+Perfect! Now we're going to create what I call the heart of the business logic.
+
+Up until now we've created:
+
+API Model → Represents the HTTP request.
+Command → Represents the business action.
+
+Now we need something that can execute that action.
+
+Session 26 - UploadDocumentCommandHandler
+
+Let's remind ourselves of the flow.
+
+Browser
+    │
+    ▼
+UploadDocumentRequest (API)
+    │
+    ▼
+DocumentsController
+    │
+    ▼
+UploadDocumentCommand
+    │
+    ▼
+❓ Who executes this?
+
+The answer is:
+
+UploadDocumentCommandHandler
+What is a Handler?
+
+A Command says:
+
+"Please upload this document."
+
+A CommandHandler says:
+
+"I'll do it."
+
+Think of it like a restaurant.
+
+Customer
+
+↓
+
+Order Slip (Command)
+
+↓
+
+Chef (CommandHandler)
+
+↓
+
+Food
+
+The order slip doesn't cook the food.
+
+The chef does.
+
+What will our Handler do eventually?
+
+Not today, but eventually it will:
+
+Receive Command
+
+↓
+
+Validate File
+
+↓
+
+Check File Type
+
+↓
+
+Upload to Blob Storage
+
+↓
+
+Create Document Entity
+
+↓
+
+Save to Database
+
+↓
+
+Publish Event (Later)
+
+↓
+
+Return Response
+
+Notice how all the business logic lives here.
+
+Not in the Controller.
+
+Why don't we put this in the Controller?
+
+Imagine this code:
+
+[HttpPost]
+public IActionResult Upload(...)
+{
+    // Validate PDF
+
+    // Virus Scan
+
+    // Upload Azure Blob
+
+    // Save Database
+
+    // Create Embeddings
+
+    // Log Audit
+
+    // Return Response
+}
+
+After a few months, this controller would be 500–1000 lines long.
+
+Instead:
+
+Controller
+
+↓
+
+Handler
+
+↓
+
+Business Logic
+
+The controller stays small forever.
+
+Step 1 - Create the Handler
+
+Inside:
+
+CogniVault.Application
+└── Documents
+    └── Commands
+
+Create:
+
+UploadDocumentCommandHandler.cs
+Step 2 - Initial Handler
+
+Let's keep it very simple.
+
+namespace CogniVault.Application.Documents.Commands;
+
+public class UploadDocumentCommandHandler
+{
+    public void Handle(UploadDocumentCommand command)
+    {
+        // Business logic will come here later.
+    }
+}
+Let's Understand Every Line
+Namespace
+namespace CogniVault.Application.Documents.Commands;
+
+Same as the Command.
+
+Why?
+
+Because both belong to the same feature.
+
+Class
+public class UploadDocumentCommandHandler
+
+This class has one responsibility:
+
+Execute an upload command.
+
+Nothing else.
+
+Handle()
+public void Handle(...)
+
+Question:
+
+Why isn't the method called:
+
+Upload()
+
+or
+
+Execute()
+
+Because every handler has the same responsibility.
+
+Handle the command.
+
+Later you'll see:
+
+DeleteDocumentCommandHandler
+
+↓
+
+Handle()
+
+--------------------------
+
+RenameDocumentCommandHandler
+
+↓
+
+Handle()
+
+--------------------------
+
+CreateUserCommandHandler
+
+↓
+
+Handle()
+
+The method name stays consistent.
+
+Parameter
+UploadDocumentCommand command
+
+The handler receives everything it needs inside the command.
+
+It doesn't ask the controller for more information.
+
+It doesn't know about HTTP.
+
+It simply receives a business request.
+
+Why void?
+
+You may have noticed:
+
+public void Handle(...)
+
+Eventually, this won't stay void.
+
+We'll return something like:
+
+Task<UploadDocumentResponse>
+
+because:
+
+Uploading is asynchronous.
+Blob Storage is asynchronous.
+Database operations are asynchronous.
+
+For now, we're keeping it simple so you understand the structure before introducing async and await.
+
+The New Architecture
+
+We've added another piece to our puzzle.
+
+Browser
+    │
+    ▼
+UploadDocumentRequest
+    │
+    ▼
+DocumentsController
+    │
+    ▼
+UploadDocumentCommand
+    │
+    ▼
+UploadDocumentCommandHandler
+
+Notice something.
+
+The Controller still doesn't know how uploading works.
+
+It simply creates a command.
+
+The Handler is responsible for executing it.
+
+This separation is one of the biggest strengths of Clean Architecture.
+
+One Important Question
+
+You might already be thinking:
+
+"If the controller creates the command, who creates the handler?"
+
+Excellent question.
+
+Right now, we could manually write:
+
+var handler = new UploadDocumentCommandHandler();
+handler.Handle(command);
+
+But that introduces another important concept:
+
+Dependency Injection (DI).
+
+Rather than creating the handler ourselves, we'll let ASP.NET Core create it and inject it into the controller.
+
+That's exactly why we spent time earlier understanding builder.Services in Program.cs.
+
+🎯 Your Task
+
+Create:
+
+CogniVault.Application
+└── Documents
+    └── Commands
+        ├── UploadDocumentCommand.cs
+        └── UploadDocumentCommandHandler.cs
+
+with the simple Handle() method shown above.
+
+Don't call it from the controller yet.
