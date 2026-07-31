@@ -5151,3 +5151,12 @@ CogniVault.Application
 with the simple Handle() method shown above.
 
 Don't call it from the controller yet.
+
+What's Next?
+
+Now we're at a perfect point to introduce Dependency Injection properly.
+Until now, DI has been mostly theoretical.
+In the next session, you'll finally answer a question every .NET developer asks at some point:
+"How does ASP.NET Core create my classes without me using new?"
+We'll wire up UploadDocumentCommandHandler through Dependency Injection so that your controller receives it automatically.
+Once you understand that, you'll understand one of the core mechanisms that powers ASP.NET Core applications.
