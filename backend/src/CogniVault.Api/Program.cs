@@ -1,4 +1,6 @@
 using CogniVault.Application.Documents.Commands;
+using CogniVault.Application.Interfaces;
+using CogniVault.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +11,7 @@ builder.Services.AddOpenApi();
 
 // Adding the class to the DI container
 builder.Services.AddScoped<UploadDocumentCommandHandler>();
+builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
 
 var app = builder.Build();
 
