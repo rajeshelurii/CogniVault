@@ -24,7 +24,7 @@ namespace CogniVault.Api.Controllers
         }
 
         [HttpPost]
-        public IActionResult Upload(UploadDocumentRequest request)
+        public async Task<IActionResult> Upload(UploadDocumentRequest request)
         {
             var command = new UploadDocumentCommand
             {
@@ -32,7 +32,7 @@ namespace CogniVault.Api.Controllers
                 FileStream = request.File.OpenReadStream()
             };
 
-            _handler.Handle(command);
+            await _handler.Handle(command);
 
             return Ok(new
             {

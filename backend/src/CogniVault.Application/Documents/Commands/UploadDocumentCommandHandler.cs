@@ -1,7 +1,8 @@
-﻿using CogniVault.Application.Interfaces;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using CogniVault.Application.Documents.Interfaces;
+using CogniVault.Domain.Entities;
 
 namespace CogniVault.Application.Documents.Commands
 {
@@ -13,9 +14,13 @@ namespace CogniVault.Application.Documents.Commands
         {
             _repository = repository;
         }
-        public void Handle(UploadDocumentCommand command)
+        public async Task Handle(UploadDocumentCommand command)
         {
             Console.WriteLine($"Uploading: {command.FileName}");
+
+            var document = new Document(command.FileName);
+            await _repository.SaveAsync(document);
+
         }
     }
 }
