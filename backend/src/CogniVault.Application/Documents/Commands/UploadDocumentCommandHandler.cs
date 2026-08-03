@@ -18,7 +18,7 @@ namespace CogniVault.Application.Documents.Commands
         {
             Console.WriteLine($"Uploading: {command.FileName}");
 
-            var document = new Document(command.FileName);
+            var document = new Document(command.FileName, "someId.pdf", "application/pdf", 100);
             await _repository.SaveAsync(document);
 
         }
